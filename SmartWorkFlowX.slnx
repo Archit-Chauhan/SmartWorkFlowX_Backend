@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="SmartWorkFlowX.Api/SmartWorkFlowX.Api.csproj" />
+  <Project Path="SmartWorkFlowX.Application/SmartWorkFlowX.Application.csproj" />
+  <Project Path="SmartWorkFlowX.Domain/SmartWorkFlowX.Domain.csproj" />
+  <Project Path="SmartWorkFlowX.Infrastructure/SmartWorkFlowX.Infrastructure.csproj" />
+</Solution>
