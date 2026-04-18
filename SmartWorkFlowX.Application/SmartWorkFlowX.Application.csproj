@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SmartWorkFlowX.Domain\SmartWorkFlowX.Domain.csproj" />
+
   </ItemGroup>
 
 </Project>
