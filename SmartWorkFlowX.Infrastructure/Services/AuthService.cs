@@ -1,5 +1,5 @@
 using Microsoft.IdentityModel.Tokens;
-using SmartWorkFlowX.Application.Interface;
+using SmartWorkFlowX.Application.Services;
 using SmartWorkFlowX.Domain.Entities;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -42,3 +42,4 @@ namespace SmartWorkFlowX.Infrastructure.services
             => BCrypt.Net.BCrypt.Verify(plainText, hash);
     }
 }
+

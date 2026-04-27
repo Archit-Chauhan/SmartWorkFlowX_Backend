@@ -26,3 +26,4 @@ namespace SmartWorkFlowX.Application.Dtos
         DateTime Timestamp
     );
 }
+

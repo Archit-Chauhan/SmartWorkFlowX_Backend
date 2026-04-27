@@ -53,3 +53,4 @@ namespace SmartWorkFlowX.Application.Dtos
         List<WorkflowStepResponse> Steps
     );
 }
+

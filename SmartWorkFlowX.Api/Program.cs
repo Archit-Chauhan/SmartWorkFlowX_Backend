@@ -5,8 +5,10 @@ using Microsoft.IdentityModel.Tokens;
 using SmartWorkFlowX.Api.Hubs;
 using SmartWorkFlowX.Api.Middleware;
 using SmartWorkFlowX.Api.Services;
-using SmartWorkFlowX.Application.Interface;
+using SmartWorkFlowX.Application.Services;
+using SmartWorkFlowX.Domain.Repositories;
 using SmartWorkFlowX.Infrastructure.Data;
+using SmartWorkFlowX.Infrastructure.Repositories;
 using SmartWorkFlowX.Infrastructure.services;
 using SmartWorkFlowX.Infrastructure.Services;
 using System.Text;
@@ -26,8 +28,24 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddDbContext<SmartWorkflowXDbContext>(options =>
     options.UseSqlServer(connectionString));
 
-// Business Services — Decorator pattern for notifications
+// ─── Domain Repository Registrations ────────────────────────────────────────
+builder.Services.AddScoped<IUserRepository, EfUserRepository>();
+builder.Services.AddScoped<IRoleRepository, EfRoleRepository>();
+builder.Services.AddScoped<IWorkflowRepository, EfWorkflowRepository>();
+builder.Services.AddScoped<ITaskRepository, EfTaskRepository>();
+builder.Services.AddScoped<IAuditLogRepository, EfAuditLogRepository>();
+builder.Services.AddScoped<INotificationRepository, EfNotificationRepository>();
+builder.Services.AddScoped<IReportRepository, EfReportRepository>();
+
+// ─── Application Service Registrations ──────────────────────────────────────
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IWorkflowService, WorkflowService>();
+builder.Services.AddScoped<ITaskService, TaskService>();
+builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddScoped<IReportService, ReportService>();
+builder.Services.AddScoped<INotificationQueryService, NotificationQueryService>();
+
+// ─── Notification Pipeline (DB + SignalR Decorator) ─────────────────────────
 builder.Services.AddScoped<DbNotificationService>(); // inner: DB persistence
 builder.Services.AddScoped<INotificationService>(sp =>
     new SignalRNotificationDecorator(
@@ -75,7 +93,7 @@ builder.Services.AddSignalR();
 // CORS — AllowCredentials is required for SignalR WebSocket handshake
 builder.Services.AddCors(options => {
     options.AddPolicy("AllowDevelopment", policy => {
-        policy.WithOrigins("http://localhost:3000", "http://localhost:5173") // React dev servers
+        policy.WithOrigins("http://localhost:3000", "http://localhost:5173")
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials(); // Required for SignalR
@@ -110,3 +128,4 @@ app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = Dat
 app.MapControllers();
 
 app.Run();
+

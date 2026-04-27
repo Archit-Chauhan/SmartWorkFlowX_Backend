@@ -86,6 +86,11 @@ namespace SmartWorkFlowX.Infrastructure.Data
             modelBuilder.Entity<AuditLog>(entity => {
                 entity.ToTable("AuditLogs");
                 entity.HasKey(a => a.LogId);
+
+                entity.HasOne(a => a.User)
+                      .WithMany()
+                      .HasForeignKey(a => a.UserId)
+                      .OnDelete(DeleteBehavior.NoAction);
             });
 
             // 6. Notifications
