@@ -1,9 +1,9 @@
-namespace SmartWorkFlowX.Application.Interface
+namespace SmartWorkFlowX.Application.Services
 {
     /// <summary>
     /// Typed interface for SignalR clients receiving notifications.
-    /// Defined in Application layer so Infrastructure can reference it
-    /// without depending on the Api project.
+    /// Defined in Domain so Infrastructure can reference it without
+    /// depending on the Api project.
     /// </summary>
     public interface INotificationClient
     {
@@ -15,3 +15,5 @@ namespace SmartWorkFlowX.Application.Interface
     /// </summary>
     public interface INotificationHub { }
 }
+
+

@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
-using SmartWorkFlowX.Application.Interface;
+using SmartWorkFlowX.Application.Services;
 using System.Security.Claims;
 
 namespace SmartWorkFlowX.Api.Hubs
@@ -33,3 +33,5 @@ namespace SmartWorkFlowX.Api.Hubs
         }
     }
 }
+
+

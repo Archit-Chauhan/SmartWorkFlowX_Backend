@@ -25,3 +25,4 @@ namespace SmartWorkFlowX.Application.Dtos
         DateTime ActedAt
     );
 }
+
