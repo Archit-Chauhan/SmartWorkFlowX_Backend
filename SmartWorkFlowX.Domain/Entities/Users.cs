@@ -1,6 +1,8 @@
+using SmartWorkFlowX.Domain.Common;
+
 namespace SmartWorkFlowX.Domain.Entities
 {
-    public class User
+    public class User : ISoftDeletable
     {
         public int UserId { get; set; }
         public string Name { get; set; } = string.Empty;
@@ -8,7 +10,11 @@ namespace SmartWorkFlowX.Domain.Entities
         public string PasswordHash { get; set; } = string.Empty;
         public int RoleId { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        
+
+        // Soft Delete
+        public bool IsDeleted { get; set; } = false;
+        public DateTime? DeletedAt { get; set; }
+
         // Navigation property
         public Role? Role { get; set; }
     }
