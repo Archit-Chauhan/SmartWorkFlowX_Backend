@@ -106,6 +106,13 @@ builder.Services.AddCors(options => {
 
 var app = builder.Build();
 
+// --- Apply Database Migrations Automatically ---
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<SmartWorkflowXDbContext>();
+    dbContext.Database.Migrate();
+}
+
 // --- 2. Middleware Pipeline ---
 app.UseGlobalExceptionHandler(); // Must be first
 
