@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SmartWorkFlowX.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using SmartWorkFlowX.Infrastructure.Data;
 namespace SmartWorkFlowX.Infrastructure.Migrations
 {
     [DbContext(typeof(SmartWorkflowXDbContext))]
-    partial class SmartWorkflowXDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260428183612_ImplementGlobalSoftDelete")]
+    partial class ImplementGlobalSoftDelete
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

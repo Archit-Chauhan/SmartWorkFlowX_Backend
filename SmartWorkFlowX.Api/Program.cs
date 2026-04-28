@@ -93,7 +93,11 @@ builder.Services.AddSignalR();
 // CORS — AllowCredentials is required for SignalR WebSocket handshake
 builder.Services.AddCors(options => {
     options.AddPolicy("AllowDevelopment", policy => {
-        policy.WithOrigins("http://localhost:3000", "http://localhost:5173")
+        policy.WithOrigins(
+                  "http://localhost:3000", 
+                  "http://localhost:5173", 
+                  "https://smart-work-flow-x-frontend.vercel.app"
+              )
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials(); // Required for SignalR

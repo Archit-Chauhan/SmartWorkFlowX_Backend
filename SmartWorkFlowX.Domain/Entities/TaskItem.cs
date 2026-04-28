@@ -1,6 +1,8 @@
+using SmartWorkFlowX.Domain.Common;
+
 namespace SmartWorkFlowX.Domain.Entities
 {
-    public class TaskItem
+    public class TaskItem : ISoftDeletable
     {
         public int TaskId { get; set; }
         public string Title { get; set; } = string.Empty;
@@ -14,6 +16,10 @@ namespace SmartWorkFlowX.Domain.Entities
         public DateTime? DueDate { get; set; }
         public DateTime? CompletedAt { get; set; }        // Set when status transitions to Completed
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        // Soft Delete
+        public bool IsDeleted { get; set; } = false;
+        public DateTime? DeletedAt { get; set; }
 
         // Navigation
         public Workflow? Workflow { get; set; }

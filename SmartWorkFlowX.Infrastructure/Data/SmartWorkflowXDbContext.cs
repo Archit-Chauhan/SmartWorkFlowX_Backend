@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SmartWorkFlowX.Domain.Common;
 using SmartWorkFlowX.Domain.Entities;
 
 namespace SmartWorkFlowX.Infrastructure.Data
@@ -16,8 +17,42 @@ namespace SmartWorkFlowX.Infrastructure.Data
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<Notification> Notifications { get; set; }
 
+        // ─── Soft-Delete Interception ────────────────────────────────────────────
+        // Intercept Remove() calls on ISoftDeletable entities and convert them
+        // into an UPDATE that sets IsDeleted = true instead of issuing a DELETE.
+        public override int SaveChanges()
+        {
+            ApplySoftDelete();
+            return base.SaveChanges();
+        }
+
+        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            ApplySoftDelete();
+            return base.SaveChangesAsync(cancellationToken);
+        }
+
+        private void ApplySoftDelete()
+        {
+            var deletedEntries = ChangeTracker.Entries<ISoftDeletable>()
+                .Where(e => e.State == EntityState.Deleted);
+
+            foreach (var entry in deletedEntries)
+            {
+                entry.State = EntityState.Modified;
+                entry.Entity.IsDeleted = true;
+                entry.Entity.DeletedAt = DateTime.UtcNow;
+            }
+        }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            // ─── Global Query Filters (automatically exclude soft-deleted records) ──
+            modelBuilder.Entity<User>().HasQueryFilter(u => !u.IsDeleted);
+            modelBuilder.Entity<Workflow>().HasQueryFilter(w => !w.IsDeleted);
+            modelBuilder.Entity<TaskItem>().HasQueryFilter(t => !t.IsDeleted);
+            modelBuilder.Entity<Notification>().HasQueryFilter(n => !n.IsDeleted);
+
             // 1. Roles & Users
             modelBuilder.Entity<Role>().ToTable("Roles");
             modelBuilder.Entity<User>(entity => {
