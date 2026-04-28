@@ -110,7 +110,12 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<SmartWorkflowXDbContext>();
+    var authService = scope.ServiceProvider.GetRequiredService<IAuthService>();
+    
     dbContext.Database.Migrate();
+    
+    // Seed default roles and admin user
+    SmartWorkFlowX.Infrastructure.Data.DbSeeder.SeedAsync(dbContext, authService).GetAwaiter().GetResult();
 }
 
 // --- 2. Middleware Pipeline ---
