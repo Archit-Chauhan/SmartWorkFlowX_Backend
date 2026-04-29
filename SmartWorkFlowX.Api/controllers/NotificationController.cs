@@ -11,10 +11,18 @@ namespace SmartWorkFlowX.Api.Controllers
     public class NotificationController : ControllerBase
     {
         private readonly INotificationQueryService _notificationQueryService;
+        private readonly IMessagePublisher _messagePublisher;
 
-        public NotificationController(INotificationQueryService notificationQueryService)
+        public NotificationController(INotificationQueryService notificationQueryService, IMessagePublisher messagePublisher)
         {
             _notificationQueryService = notificationQueryService;
+            _messagePublisher = messagePublisher;
+        }
+
+        public class BroadcastRequest
+        {
+            public int? RoleId { get; set; }
+            public string Message { get; set; } = string.Empty;
         }
 
         // GET: api/Notification
@@ -49,6 +57,20 @@ namespace SmartWorkFlowX.Api.Controllers
         {
             await _notificationQueryService.MarkAllAsReadAsync(GetUserId());
             return Ok(new { message = "All notifications marked as read." });
+        }
+
+        // POST: api/Notification/broadcast
+        [HttpPost("broadcast")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> BroadcastNotification([FromBody] BroadcastRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.Message))
+            {
+                return BadRequest(new { message = "Message is required." });
+            }
+
+            await _messagePublisher.PublishBulkNotificationAsync(request.RoleId, request.Message, GetUserId());
+            return Ok(new { message = "Broadcast notification queued successfully." });
         }
 
         private int GetUserId()
