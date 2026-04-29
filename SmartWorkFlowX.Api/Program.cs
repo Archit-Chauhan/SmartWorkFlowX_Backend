@@ -63,6 +63,22 @@ builder.Services.AddScoped<INotificationService>(sp =>
         sp.GetRequiredService<DbNotificationService>(),
         sp.GetRequiredService<IHubContext<NotificationHub, INotificationClient>>()));
 
+// ---------------- AZURE SERVICE BUS & WORKERS ----------------
+
+builder.Services.AddSingleton(sp => 
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    var sbConnStr = config["AzureServiceBus:ConnectionString"] ?? throw new InvalidOperationException("Missing Service Bus Connection String");
+    // In dev, you might want to return null or a dummy client if the connection string is a placeholder
+    return new Azure.Messaging.ServiceBus.ServiceBusClient(sbConnStr);
+});
+
+builder.Services.AddScoped<IMessagePublisher, ServiceBusMessagePublisher>();
+
+builder.Services.AddHostedService<SmartWorkFlowX.Api.Workers.WorkflowAuditWorker>();
+builder.Services.AddHostedService<SmartWorkFlowX.Api.Workers.WorkflowNotificationWorker>();
+builder.Services.AddHostedService<SmartWorkFlowX.Api.Workers.BulkNotificationWorker>();
+
 // ---------------- AUTH ----------------
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
