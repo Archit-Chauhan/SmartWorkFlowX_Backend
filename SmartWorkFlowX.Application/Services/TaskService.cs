@@ -72,17 +72,18 @@ namespace SmartWorkFlowX.Application.Services
             if (!workflow.Steps.Any())
                 throw new ArgumentException("Selected workflow has no defined steps.");
 
-            var firstStep = workflow.Steps.OrderBy(s => s.StepOrder).First();
-
+            // Step 0 = Employee work stage (the employee completes the task first)
+            // Step 1+ = Approval steps defined in the workflow
             var newTask = new TaskItem
             {
                 Title = request.Title,
                 Description = request.Description,
                 WorkflowId = request.WorkflowId,
                 AssignedTo = request.AssignedTo,
+                OriginalAssignedTo = request.AssignedTo, // Track original employee for GoBack
                 Priority = request.Priority,
                 Status = "In Progress",
-                CurrentStepOrder = firstStep.StepOrder,
+                CurrentStepOrder = 0, // Start at Step 0 (employee work stage)
                 DueDate = request.DueDate,
                 CreatedAt = DateTime.UtcNow
             };
@@ -112,16 +113,24 @@ namespace SmartWorkFlowX.Application.Services
             if (task.AssignedTo != actingUserId)
                 throw new UnauthorizedAccessException("You are not the current assignee for this task.");
 
+            // Step 0 = Employee completing their work, Step 1+ = Approver approving
+            var isEmployeeStep = task.CurrentStepOrder == 0;
+            var actionLabel = isEmployeeStep ? "Completed" : "Approved";
+
             await _taskRepo.AddHistoryAsync(new TaskStepHistory
             {
                 TaskId = taskId,
                 StepOrder = task.CurrentStepOrder,
                 ActedByUserId = actingUserId,
-                Action = "Approved",
+                Action = actionLabel,
                 Comment = comment,
                 ActedAt = DateTime.UtcNow
             });
 
+            // Clear any previous rejection reason when moving forward
+            task.RejectedReason = null;
+
+            // Find the next approval step (first step with StepOrder > current)
             var nextStep = task.Workflow?.Steps
                 .OrderBy(s => s.StepOrder)
                 .FirstOrDefault(s => s.StepOrder > task.CurrentStepOrder);
@@ -149,7 +158,7 @@ namespace SmartWorkFlowX.Application.Services
             await _auditRepo.AddAsync(new AuditLog
             {
                 UserId = actingUserId,
-                Action = $"Approved Task ID={taskId} at Step {task.CurrentStepOrder}. New Status: {task.Status}.",
+                Action = $"{actionLabel} Task ID={taskId} at Step {task.CurrentStepOrder}. New Status: {task.Status}.",
                 EntityName = "Tasks",
                 Timestamp = DateTime.UtcNow
             });
@@ -181,14 +190,22 @@ namespace SmartWorkFlowX.Application.Services
 
             task.RejectedReason = request.Reason;
 
-            if (currentStep?.OnRejectAction == "GoBack" && task.CurrentStepOrder > 1)
+            // Step 0 = Employee stage. Employee rejecting cancels the task.
+            if (task.CurrentStepOrder == 0)
             {
+                task.Status = "Cancelled";
+                task.AssignedTo = null;
+            }
+            else if (currentStep?.OnRejectAction == "GoBack")
+            {
+                // Find the previous workflow step
                 var previousStep = task.Workflow!.Steps
                     .OrderByDescending(s => s.StepOrder)
                     .FirstOrDefault(s => s.StepOrder < task.CurrentStepOrder);
 
                 if (previousStep != null)
                 {
+                    // Go back to the previous approval step
                     var prevApprover = await _taskRepo.GetFirstUserByRoleAsync(previousStep.ApproverRoleId);
                     if (prevApprover != null)
                     {
@@ -206,9 +223,26 @@ namespace SmartWorkFlowX.Application.Services
                         task.AssignedTo = null;
                     }
                 }
+                else if (task.OriginalAssignedTo.HasValue)
+                {
+                    // No previous workflow step exists → go back to Step 0 (original employee)
+                    task.AssignedTo = task.OriginalAssignedTo.Value;
+                    task.CurrentStepOrder = 0;
+                    task.Status = "In Progress";
+
+                    await _notificationService.SendNotificationAsync(
+                        task.OriginalAssignedTo.Value,
+                        $"Task '{task.Title}' was rejected and has been sent back to you for revision.");
+                }
+                else
+                {
+                    task.Status = "Cancelled";
+                    task.AssignedTo = null;
+                }
             }
             else
             {
+                // OnRejectAction == "Cancel" or no step found
                 task.Status = "Cancelled";
                 task.AssignedTo = null;
             }
