@@ -48,7 +48,7 @@ builder.Services.AddScoped<IReportRepository, EfReportRepository>();
 // ---------------- SERVICES ----------------
 
 // ✅ Fully qualified to avoid namespace conflict
-builder.Services.AddScoped<IAuthService, SmartWorkFlowX.Infrastructure.Services.AuthService>();
+builder.Services.AddScoped<IAuthService, SmartWorkFlowX.Infrastructure.services.AuthService>();
 
 builder.Services.AddScoped<IWorkflowService, WorkflowService>();
 builder.Services.AddScoped<ITaskService, TaskService>();
