@@ -12,6 +12,7 @@ namespace SmartWorkFlowX.Domain.Repositories
         Task<List<TaskItem>> GetMyTasksAsync(int userId);
         Task<List<TaskItem>> GetAllFilteredAsync(string? status, string? priority, int? assignedTo);
         Task<List<TaskStepHistory>> GetHistoryAsync(int taskId);
+        Task<List<TaskItem>> GetMyActivityAsync(int userId);
         Task<User?> GetFirstUserByRoleAsync(int roleId);
         Task AddAsync(TaskItem task);
         Task AddHistoryAsync(TaskStepHistory history);
