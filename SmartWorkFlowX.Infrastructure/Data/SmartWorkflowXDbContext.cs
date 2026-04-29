@@ -100,6 +100,11 @@ namespace SmartWorkFlowX.Infrastructure.Data
                       .HasForeignKey(t => t.AssignedTo)
                       .OnDelete(DeleteBehavior.NoAction);
 
+                entity.HasOne<User>()
+                      .WithMany()
+                      .HasForeignKey(t => t.OriginalAssignedTo)
+                      .OnDelete(DeleteBehavior.NoAction);
+
                 entity.HasMany(t => t.StepHistories)
                       .WithOne(h => h.Task)
                       .HasForeignKey(h => h.TaskId)
