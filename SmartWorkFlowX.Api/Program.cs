@@ -9,7 +9,6 @@ using SmartWorkFlowX.Application.Services;
 using SmartWorkFlowX.Domain.Repositories;
 using SmartWorkFlowX.Infrastructure.Data;
 using SmartWorkFlowX.Infrastructure.Repositories;
-using SmartWorkFlowX.Infrastructure.services;
 using SmartWorkFlowX.Infrastructure.Services;
 using System.Text;
 
@@ -18,15 +17,19 @@ var builder = WebApplication.CreateBuilder(args);
 // --- 1. Services Configuration ---
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1", new() { Title = "SmartWorkFlowX API", Version = "v1" });
-});
+builder.Services.AddSwaggerGen();
 
-// Database
+// ✅ DB with retry (CRITICAL FIX)
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
 builder.Services.AddDbContext<SmartWorkflowXDbContext>(options =>
-    options.UseSqlServer(connectionString));
+    options.UseSqlServer(connectionString, sqlOptions =>
+    {
+        sqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(10),
+            errorNumbersToAdd: null);
+    }));
 
 // ─── Domain Repository Registrations ────────────────────────────────────────
 builder.Services.AddScoped<IUserRepository, EfUserRepository>();
@@ -45,14 +48,14 @@ builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<INotificationQueryService, NotificationQueryService>();
 
-// ─── Notification Pipeline (DB + SignalR Decorator) ─────────────────────────
-builder.Services.AddScoped<DbNotificationService>(); // inner: DB persistence
+// Notification decorator
+builder.Services.AddScoped<DbNotificationService>();
 builder.Services.AddScoped<INotificationService>(sp =>
     new SignalRNotificationDecorator(
         sp.GetRequiredService<DbNotificationService>(),
         sp.GetRequiredService<IHubContext<NotificationHub, INotificationClient>>()));
 
-// JWT Authentication
+// Auth
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -68,17 +71,15 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
         };
 
-        // Allow SignalR to receive the JWT token from query string
         options.Events = new JwtBearerEvents
         {
             OnMessageReceived = context =>
             {
-                var accessToken = context.Request.Query["access_token"];
-                var path = context.HttpContext.Request.Path;
-                if (!string.IsNullOrEmpty(accessToken) &&
-                    path.StartsWithSegments("/hubs"))
+                var token = context.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(token) &&
+                    context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
                 {
-                    context.Token = accessToken;
+                    context.Token = token;
                 }
                 return Task.CompletedTask;
             }
@@ -90,58 +91,83 @@ builder.Services.AddAuthorization();
 // SignalR
 builder.Services.AddSignalR();
 
-// CORS — AllowCredentials is required for SignalR WebSocket handshake
-builder.Services.AddCors(options => {
-    options.AddPolicy("AllowDevelopment", policy => {
+// CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
         policy.WithOrigins(
-                  "http://localhost:3000", 
-                  "http://localhost:5173", 
-                  "https://smart-work-flow-x-frontend.vercel.app"
-              )
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials(); // Required for SignalR
+                "http://localhost:3000",
+                "http://localhost:5173",
+                "https://smart-work-flow-x-frontend.vercel.app"
+            )
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
 });
 
+// ---------------- BUILD ----------------
+
 var app = builder.Build();
 
-// --- Apply Database Migrations Automatically ---
-using (var scope = app.Services.CreateScope())
+// ---------------- SAFE DB INIT (NON-BLOCKING) ----------------
+
+// 🔥 THIS IS THE KEY CHANGE
+_ = Task.Run(async () =>
 {
-    var dbContext = scope.ServiceProvider.GetRequiredService<SmartWorkflowXDbContext>();
-    var authService = scope.ServiceProvider.GetRequiredService<IAuthService>();
-    
-    dbContext.Database.Migrate();
-    
-    // Seed default roles and admin user
-    SmartWorkFlowX.Infrastructure.Data.DbSeeder.SeedAsync(dbContext, authService).GetAwaiter().GetResult();
-}
+    using var scope = app.Services.CreateScope();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
-// --- 2. Middleware Pipeline ---
-app.UseGlobalExceptionHandler(); // Must be first
+    try
+    {
+        var db = scope.ServiceProvider.GetRequiredService<SmartWorkflowXDbContext>();
+        var auth = scope.ServiceProvider.GetRequiredService<IAuthService>();
 
-app.UseCors("AllowDevelopment");
+        logger.LogInformation("Starting DB migration...");
+
+        await db.Database.MigrateAsync();
+
+        logger.LogInformation("Seeding database...");
+
+        await DbSeeder.SeedAsync(db, auth);
+
+        logger.LogInformation("DB migration & seeding completed.");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "DB init failed. App will continue running.");
+    }
+});
+
+// ---------------- MIDDLEWARE ----------------
+
+app.UseGlobalExceptionHandler();
+
+app.UseCors("AllowFrontend");
 
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "SmartWorkFlowX API V1");
-        c.RoutePrefix = string.Empty;
-    });
+    app.UseSwaggerUI();
 }
 
 app.UseHttpsRedirection();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
-// SignalR Hub endpoint
 app.MapHub<NotificationHub>("/hubs/notifications");
 
-app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }));
+app.MapGet("/health", () =>
+{
+    return Results.Ok(new
+    {
+        status = "healthy",
+        time = DateTime.UtcNow
+    });
+});
+
 app.MapControllers();
 
 app.Run();
-
