@@ -6,7 +6,7 @@ namespace SmartWorkFlowX.Api.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Admin,Auditor")]
+    [Authorize]
     public class ReportController : ControllerBase
     {
         private readonly IReportService _reportService;
@@ -16,13 +16,14 @@ namespace SmartWorkFlowX.Api.Controllers
             _reportService = reportService;
         }
 
-        // GET: api/Report/analytics
+        // GET: api/Report/analytics — available to ALL authenticated users (Dashboard home page)
         [HttpGet("analytics")]
         public async Task<IActionResult> GetAnalytics()
             => Ok(await _reportService.GetAnalyticsAsync());
 
-        // GET: api/Report/audit-logs
+        // GET: api/Report/audit-logs — Admin & Auditor only
         [HttpGet("audit-logs")]
+        [Authorize(Roles = "Admin,Auditor")]
         public async Task<IActionResult> GetAuditLogs(
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 50)

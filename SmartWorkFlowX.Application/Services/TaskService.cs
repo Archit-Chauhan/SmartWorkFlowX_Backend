@@ -269,6 +269,24 @@ namespace SmartWorkFlowX.Application.Services
                 h.Comment,
                 h.ActedAt)).ToList();
         }
+
+        public async Task<List<object>> GetMyActivityAsync(int userId)
+        {
+            var tasks = await _taskRepo.GetMyActivityAsync(userId);
+            return tasks.Select(t => (object)new
+            {
+                t.TaskId,
+                t.Title,
+                t.Description,
+                t.Status,
+                t.Priority,
+                t.CurrentStepOrder,
+                t.DueDate,
+                t.CompletedAt,
+                t.CreatedAt,
+                WorkflowTitle = t.Workflow?.Title
+            }).ToList();
+        }
     }
 }
 

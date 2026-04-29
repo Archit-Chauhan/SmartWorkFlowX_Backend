@@ -23,6 +23,11 @@ namespace SmartWorkFlowX.Api.Controllers
         public async Task<IActionResult> GetMyTasks()
             => Ok(await _taskService.GetMyTasksAsync(GetUserId()));
 
+        // GET: api/Task/my-activity
+        [HttpGet("my-activity")]
+        public async Task<IActionResult> GetMyActivity()
+            => Ok(await _taskService.GetMyActivityAsync(GetUserId()));
+
         // GET: api/Task/all
         [HttpGet("all")]
         [Authorize(Roles = "Manager,Admin")]

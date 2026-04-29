@@ -13,6 +13,7 @@ namespace SmartWorkFlowX.Application.Services
         Task<string> ApproveTaskAsync(int taskId, int actingUserId, string? comment);
         Task<string> RejectTaskAsync(int taskId, int actingUserId, TaskRejectRequest request);
         Task<List<TaskStepHistoryResponse>> GetHistoryAsync(int taskId);
+        Task<List<object>> GetMyActivityAsync(int userId);
     }
 }
 

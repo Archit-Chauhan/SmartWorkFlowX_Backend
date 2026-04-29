@@ -53,6 +53,23 @@ namespace SmartWorkFlowX.Infrastructure.Repositories
         public async Task<User?> GetFirstUserByRoleAsync(int roleId)
             => await _context.Users.FirstOrDefaultAsync(u => u.RoleId == roleId);
 
+        public async Task<List<TaskItem>> GetMyActivityAsync(int userId)
+        {
+            // Get IDs of tasks the user has acted on
+            var actedTaskIds = await _context.TaskStepHistories
+                .Where(h => h.ActedByUserId == userId)
+                .Select(h => h.TaskId)
+                .Distinct()
+                .ToListAsync();
+
+            // Return those tasks, excluding ones currently assigned to the user (those show in Action Center)
+            return await _context.Tasks
+                .Include(t => t.Workflow)
+                .Where(t => actedTaskIds.Contains(t.TaskId) && t.AssignedTo != userId)
+                .OrderByDescending(t => t.CreatedAt)
+                .ToListAsync();
+        }
+
         public async Task AddAsync(TaskItem task)
             => await _context.Tasks.AddAsync(task);
 
