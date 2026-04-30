@@ -20,8 +20,12 @@ namespace SmartWorkFlowX.Api.Controllers
 
         // GET: api/Workflow
         [HttpGet]
-        public async Task<IActionResult> GetAll()
-            => Ok(await _workflowService.GetAllAsync());
+        public async Task<IActionResult> GetAll(
+            [FromQuery] int page = 1,
+            [FromQuery] int limit = 10)
+        {
+            return Ok(await _workflowService.GetPaginatedAsync(page, limit));
+        }
 
         // GET: api/Workflow/{id}
         [HttpGet("{id}")]

@@ -9,6 +9,7 @@ namespace SmartWorkFlowX.Domain.Repositories
     public interface IWorkflowRepository
     {
         Task<List<Workflow>> GetAllAsync();
+        Task<(IEnumerable<Workflow> workflows, int total)> GetPaginatedAsync(int page, int pageSize);
         Task<Workflow?> GetByIdWithDetailsAsync(int workflowId);
         Task<Workflow?> GetByIdWithStepsAsync(int workflowId);
         Task<bool> HasActiveTasksAsync(int workflowId);
