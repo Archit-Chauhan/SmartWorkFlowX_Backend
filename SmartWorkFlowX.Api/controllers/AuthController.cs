@@ -46,6 +46,47 @@ namespace SmartWorkFlowX.Api.Controllers
             var token = _authService.GenerateToken(user, user.Role!.RoleName);
             return Ok(new AuthResponse(token, user.Email, user.Role.RoleName));
         }
+
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.Email))
+                return BadRequest("Email is required.");
+
+            // In production, you would determine origin Url from request headers, e.g. Request.Headers["Origin"]
+            // Since frontend is usually on 5173 for Vite or 3000 for React
+            var origin = "http://localhost:5173"; 
+            if (Request.Headers.TryGetValue("Origin", out var originHeader))
+            {
+                origin = originHeader.ToString();
+            }
+            
+            await _authService.ForgotPasswordAsync(request.Email, origin);
+
+            // Always return OK to prevent email enumeration
+            return Ok(new { message = "If the email exists, a password reset link has been sent." });
+        }
+
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.Email) || 
+                string.IsNullOrWhiteSpace(request.Token) || 
+                string.IsNullOrWhiteSpace(request.NewPassword))
+            {
+                return BadRequest("All fields are required.");
+            }
+
+            try
+            {
+                await _authService.ResetPasswordAsync(request.Email, request.Token, request.NewPassword);
+                return Ok(new { message = "Password reset successfully." });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
     }
 }
 

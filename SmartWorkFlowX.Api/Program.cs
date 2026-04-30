@@ -63,6 +63,8 @@ builder.Services.AddScoped<INotificationService>(sp =>
         sp.GetRequiredService<DbNotificationService>(),
         sp.GetRequiredService<IHubContext<NotificationHub, INotificationClient>>()));
 
+builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+
 // ---------------- AUTH ----------------
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

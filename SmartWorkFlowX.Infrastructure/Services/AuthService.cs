@@ -5,13 +5,22 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.Extensions.Configuration;
+using SmartWorkFlowX.Domain.Repositories;
 
 namespace SmartWorkFlowX.Infrastructure.services
 {
     public class AuthService : IAuthService
     {
         private readonly IConfiguration _config;
-        public AuthService(IConfiguration config) => _config = config;
+        private readonly IUserRepository _userRepo;
+        private readonly IEmailService _emailService;
+
+        public AuthService(IConfiguration config, IUserRepository userRepo, IEmailService emailService)
+        {
+            _config = config;
+            _userRepo = userRepo;
+            _emailService = emailService;
+        }
 
         public string GenerateToken(User user, string roleName)
         {
@@ -40,6 +49,53 @@ namespace SmartWorkFlowX.Infrastructure.services
 
         public bool VerifyPassword(string plainText, string hash)
             => BCrypt.Net.BCrypt.Verify(plainText, hash);
+
+        public async Task ForgotPasswordAsync(string email, string originUrl)
+        {
+            var user = await _userRepo.GetByEmailWithRoleAsync(email);
+            if (user == null)
+            {
+                // We shouldn't reveal whether an email exists or not for security reasons.
+                // Just return silently.
+                return;
+            }
+
+            // Generate a secure token
+            var tokenBytes = System.Security.Cryptography.RandomNumberGenerator.GetBytes(32);
+            var token = Convert.ToBase64String(tokenBytes);
+
+            user.ResetToken = token;
+            user.ResetTokenExpiry = DateTime.UtcNow.AddMinutes(15);
+            await _userRepo.SaveAsync();
+
+            var encodedToken = Uri.EscapeDataString(token);
+            var encodedEmail = Uri.EscapeDataString(email);
+            var resetLink = $"{originUrl}/reset-password?token={encodedToken}&email={encodedEmail}";
+
+            var htmlBody = $@"
+                <h3>Password Reset Request</h3>
+                <p>Hello {user.Name},</p>
+                <p>You requested a password reset. Click the link below to reset your password. This link is valid for 15 minutes.</p>
+                <p><a href='{resetLink}'>Reset Password</a></p>
+                <p>If you did not request this, please ignore this email.</p>";
+
+            await _emailService.SendEmailAsync(user.Email, "Reset Your Password", htmlBody);
+        }
+
+        public async Task ResetPasswordAsync(string email, string token, string newPassword)
+        {
+            var user = await _userRepo.GetByEmailWithRoleAsync(email);
+            if (user == null)
+                throw new ArgumentException("Invalid token or email.");
+
+            if (user.ResetToken != token || user.ResetTokenExpiry == null || user.ResetTokenExpiry < DateTime.UtcNow)
+                throw new ArgumentException("Invalid or expired reset token.");
+
+            user.PasswordHash = HashPassword(newPassword);
+            user.ResetToken = null;
+            user.ResetTokenExpiry = null;
+            await _userRepo.SaveAsync();
+        }
     }
 }
 
