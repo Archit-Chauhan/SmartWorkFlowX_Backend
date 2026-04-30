@@ -43,7 +43,7 @@ namespace SmartWorkFlowX.Infrastructure.Repositories
 
             var userTaskData = await _context.Tasks
                 .Where(t => t.AssignedTo != null)
-                .GroupBy(t => new { t.AssignedTo, t.Assignee!.Name })
+                .GroupBy(t => new { t.AssignedTo, Name = t.Assignee != null ? t.Assignee.Name : "Unknown" })
                 .Select(g => new
                 {
                     UserName = g.Key.Name,
