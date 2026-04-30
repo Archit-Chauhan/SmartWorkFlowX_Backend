@@ -11,6 +11,8 @@ namespace SmartWorkFlowX.Application.Services
         string GenerateToken(User user, string roleName);
         string HashPassword(string plainText);
         bool VerifyPassword(string plainText, string hash);
+        Task ForgotPasswordAsync(string email, string originUrl);
+        Task ResetPasswordAsync(string email, string token, string newPassword);
     }
 }
 
