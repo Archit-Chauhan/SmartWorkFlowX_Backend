@@ -20,13 +20,17 @@ namespace SmartWorkFlowX.Api.Controllers
 
         // GET: api/Task/my-tasks
         [HttpGet("my-tasks")]
-        public async Task<IActionResult> GetMyTasks()
-            => Ok(await _taskService.GetMyTasksAsync(GetUserId()));
+        public async Task<IActionResult> GetMyTasks(
+            [FromQuery] int page = 1,
+            [FromQuery] int limit = 10)
+            => Ok(await _taskService.GetMyTasksPaginatedAsync(GetUserId(), page, limit));
 
         // GET: api/Task/my-activity
         [HttpGet("my-activity")]
-        public async Task<IActionResult> GetMyActivity()
-            => Ok(await _taskService.GetMyActivityAsync(GetUserId()));
+        public async Task<IActionResult> GetMyActivity(
+            [FromQuery] int page = 1,
+            [FromQuery] int limit = 10)
+            => Ok(await _taskService.GetMyActivityPaginatedAsync(GetUserId(), page, limit));
 
         // GET: api/Task/all
         [HttpGet("all")]

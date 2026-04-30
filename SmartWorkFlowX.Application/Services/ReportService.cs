@@ -18,7 +18,7 @@ namespace SmartWorkFlowX.Application.Services
         public async Task<SystemAnalyticsDto> GetAnalyticsAsync()
             => await _reportRepo.GetAnalyticsAsync();
 
-        public async Task<(List<AuditLogResponse> Items, int Total)> GetAuditLogsAsync(int page, int pageSize)
+        public async Task<PaginatedList<AuditLogResponse>> GetAuditLogsAsync(int page, int pageSize)
         {
             var (logs, total) = await _auditRepo.GetPagedWithUserAsync(page, pageSize);
             var items = logs.Select(l => new AuditLogResponse(
@@ -26,7 +26,14 @@ namespace SmartWorkFlowX.Application.Services
                 l.Action,
                 l.EntityName,
                 l.Timestamp)).ToList();
-            return (items, total);
+            
+            return new PaginatedList<AuditLogResponse>
+            {
+                Data = items,
+                Total = total,
+                Page = page,
+                PageSize = pageSize
+            };
         }
 
         public async Task<List<object>> GetOverdueTasksAsync()

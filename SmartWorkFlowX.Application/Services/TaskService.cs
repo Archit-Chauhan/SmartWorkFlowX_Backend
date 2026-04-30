@@ -287,6 +287,57 @@ namespace SmartWorkFlowX.Application.Services
                 WorkflowTitle = t.Workflow?.Title
             }).ToList();
         }
+
+        public async Task<PaginatedList<object>> GetMyTasksPaginatedAsync(int userId, int page, int pageSize)
+        {
+            var (tasks, total) = await _taskRepo.GetMyTasksPaginatedAsync(userId, page, pageSize);
+            var mapped = tasks.Select(t => (object)new
+            {
+                t.TaskId,
+                t.Title,
+                t.Description,
+                t.Status,
+                t.Priority,
+                t.CurrentStepOrder,
+                t.DueDate,
+                t.CreatedAt,
+                WorkflowTitle = t.Workflow?.Title
+            }).ToList();
+
+            return new PaginatedList<object>
+            {
+                Data = mapped,
+                Total = total,
+                Page = page,
+                PageSize = pageSize
+            };
+        }
+
+        public async Task<PaginatedList<object>> GetMyActivityPaginatedAsync(int userId, int page, int pageSize)
+        {
+            var (tasks, total) = await _taskRepo.GetMyActivityPaginatedAsync(userId, page, pageSize);
+            var mapped = tasks.Select(t => (object)new
+            {
+                t.TaskId,
+                t.Title,
+                t.Description,
+                t.Status,
+                t.Priority,
+                t.CurrentStepOrder,
+                t.DueDate,
+                t.CompletedAt,
+                t.CreatedAt,
+                WorkflowTitle = t.Workflow?.Title
+            }).ToList();
+
+            return new PaginatedList<object>
+            {
+                Data = mapped,
+                Total = total,
+                Page = page,
+                PageSize = pageSize
+            };
+        }
     }
 }
 

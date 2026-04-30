@@ -20,8 +20,12 @@ namespace SmartWorkFlowX.Api.Controllers
 
         // GET: api/Admin/users
         [HttpGet("users")]
-        public async Task<IActionResult> GetAllUsers()
-            => Ok(await _adminService.GetAllUsersAsync());
+        public async Task<IActionResult> GetUsers(
+            [FromQuery] int page = 1,
+            [FromQuery] int limit = 10)
+        {
+            return Ok(await _adminService.GetPaginatedUsersAsync(page, limit));
+        }
 
         // GET: api/Admin/roles
         [HttpGet("roles")]

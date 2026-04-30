@@ -70,6 +70,44 @@ namespace SmartWorkFlowX.Infrastructure.Repositories
                 .ToListAsync();
         }
 
+        public async Task<(IEnumerable<TaskItem> tasks, int total)> GetMyTasksPaginatedAsync(int userId, int page, int pageSize)
+        {
+            var query = _context.Tasks
+                .Include(t => t.Workflow)
+                .Where(t => t.AssignedTo == userId && t.Status != "Completed" && t.Status != "Cancelled");
+
+            var total = await query.CountAsync();
+            var items = await query
+                .OrderByDescending(t => t.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (items, total);
+        }
+
+        public async Task<(IEnumerable<TaskItem> tasks, int total)> GetMyActivityPaginatedAsync(int userId, int page, int pageSize)
+        {
+            var actedTaskIds = await _context.TaskStepHistories
+                .Where(h => h.ActedByUserId == userId)
+                .Select(h => h.TaskId)
+                .Distinct()
+                .ToListAsync();
+
+            var query = _context.Tasks
+                .Include(t => t.Workflow)
+                .Where(t => actedTaskIds.Contains(t.TaskId) && t.AssignedTo != userId);
+
+            var total = await query.CountAsync();
+            var items = await query
+                .OrderByDescending(t => t.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (items, total);
+        }
+
         public async Task AddAsync(TaskItem task)
             => await _context.Tasks.AddAsync(task);
 
