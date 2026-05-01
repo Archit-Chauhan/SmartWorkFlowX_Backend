@@ -38,6 +38,28 @@ namespace SmartWorkFlowX.Application.Services
             }).ToList();
         }
 
+        public async Task<PaginatedList<object>> GetPaginatedUsersAsync(int page, int limit)
+        {
+            var (users, total) = await _userRepo.GetPaginatedAsync(page, limit);
+            var mapped = users.Select(u => (object)new
+            {
+                u.UserId,
+                u.Name,
+                u.Email,
+                RoleName = u.Role?.RoleName ?? "No Role",
+                u.RoleId,
+                u.CreatedAt
+            }).ToList();
+
+            return new PaginatedList<object>
+            {
+                Data = mapped,
+                Total = total,
+                Page = page,
+                PageSize = limit
+            };
+        }
+
         public async Task<List<object>> GetAllRolesAsync()
         {
             var roles = await _roleRepo.GetAllAsync();
@@ -82,7 +104,7 @@ namespace SmartWorkFlowX.Application.Services
             var user = await _userRepo.GetByIdAsync(targetUserId)
                 ?? throw new KeyNotFoundException("User not found.");
 
-            _userRepo.Remove(user);
+            await _userRepo.SoftDeleteAsync(targetUserId);
             await _auditRepo.AddAsync(new AuditLog
             {
                 UserId = actingUserId,

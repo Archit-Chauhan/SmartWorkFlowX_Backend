@@ -8,6 +8,7 @@ namespace SmartWorkFlowX.Application.Services
     public interface IWorkflowService
     {
         Task<List<WorkflowResponse>> GetAllAsync();
+        Task<PaginatedList<WorkflowResponse>> GetPaginatedAsync(int page, int pageSize);
         Task<WorkflowDetailResponse> GetByIdAsync(int workflowId);
         Task<int> CreateAsync(WorkflowCreateRequest request, int createdByUserId);
         Task UpdateAsync(int workflowId, WorkflowUpdateRequest request, int actingUserId);

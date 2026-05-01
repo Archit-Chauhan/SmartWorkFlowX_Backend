@@ -13,6 +13,19 @@ namespace SmartWorkFlowX.Infrastructure.Repositories
         public async Task<List<Workflow>> GetAllAsync()
             => await _context.Workflows.Include(w => w.Steps).ToListAsync();
 
+        public async Task<(IEnumerable<Workflow> workflows, int total)> GetPaginatedAsync(int page, int pageSize)
+        {
+            var query = _context.Workflows.Include(w => w.Steps);
+            var total = await query.CountAsync();
+            var items = await query
+                .OrderBy(w => w.WorkflowId)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (items, total);
+        }
+
         public async Task<Workflow?> GetByIdWithDetailsAsync(int workflowId)
             => await _context.Workflows
                 .Include(w => w.Creator)

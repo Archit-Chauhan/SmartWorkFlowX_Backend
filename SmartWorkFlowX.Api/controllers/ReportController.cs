@@ -26,10 +26,9 @@ namespace SmartWorkFlowX.Api.Controllers
         [Authorize(Roles = "Admin,Auditor")]
         public async Task<IActionResult> GetAuditLogs(
             [FromQuery] int page = 1,
-            [FromQuery] int pageSize = 50)
+            [FromQuery] int pageSize = 10)
         {
-            var (items, total) = await _reportService.GetAuditLogsAsync(page, pageSize);
-            return Ok(new { total, page, pageSize, data = items });
+            return Ok(await _reportService.GetAuditLogsAsync(page, pageSize));
         }
 
         // GET: api/Report/overdue-tasks

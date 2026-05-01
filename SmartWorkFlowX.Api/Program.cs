@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
-using Microsoft.OpenApi.Models; // ✅ added
+using Microsoft.OpenApi.Models;
 using SmartWorkFlowX.Api.Hubs;
 using SmartWorkFlowX.Api.Middleware;
 using SmartWorkFlowX.Api.Services;
@@ -103,6 +103,7 @@ builder.Services.AddScoped<IMessagePublisher, ServiceBusMessagePublisher>();
 builder.Services.AddHostedService<SmartWorkFlowX.Api.Workers.WorkflowAuditWorker>();
 builder.Services.AddHostedService<SmartWorkFlowX.Api.Workers.WorkflowNotificationWorker>();
 builder.Services.AddHostedService<SmartWorkFlowX.Api.Workers.BulkNotificationWorker>();
+builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 
 // ---------------- AUTH ----------------
 
