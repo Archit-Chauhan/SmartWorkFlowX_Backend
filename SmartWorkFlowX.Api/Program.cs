@@ -1,3 +1,4 @@
+using Azure.Messaging.ServiceBus.Administration;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
@@ -205,6 +206,48 @@ _ = Task.Run(async () =>
         await DbSeeder.SeedAsync(dbContext, authService);
 
         logger.LogInformation("Database migration & seeding completed.");
+
+        var sbConnStr = app.Configuration["AzureServiceBus:ConnectionString"];
+        if (!string.IsNullOrWhiteSpace(sbConnStr))
+        {
+            try
+            {
+                logger.LogInformation("Provisioning Azure Service Bus entities...");
+                var adminClient = new ServiceBusAdministrationClient(sbConnStr);
+                
+                var queueName = app.Configuration["AzureServiceBus:BulkNotificationQueue"] ?? "bulk-notifications";
+                if (!await adminClient.QueueExistsAsync(queueName)) 
+                {
+                    await adminClient.CreateQueueAsync(queueName);
+                    logger.LogInformation($"Created queue: {queueName}");
+                }
+                
+                var topicName = app.Configuration["AzureServiceBus:TopicName"] ?? "workflow-events";
+                if (!await adminClient.TopicExistsAsync(topicName)) 
+                {
+                    await adminClient.CreateTopicAsync(topicName);
+                    logger.LogInformation($"Created topic: {topicName}");
+                }
+                
+                if (!await adminClient.SubscriptionExistsAsync(topicName, "audit-subscription")) 
+                {
+                    await adminClient.CreateSubscriptionAsync(topicName, "audit-subscription");
+                    logger.LogInformation($"Created subscription: audit-subscription");
+                }
+                
+                if (!await adminClient.SubscriptionExistsAsync(topicName, "notification-subscription")) 
+                {
+                    await adminClient.CreateSubscriptionAsync(topicName, "notification-subscription");
+                    logger.LogInformation($"Created subscription: notification-subscription");
+                }
+                
+                logger.LogInformation("Service Bus provisioning completed.");
+            }
+            catch (Exception sbEx)
+            {
+                logger.LogError(sbEx, "Service Bus provisioning failed.");
+            }
+        }
     }
     catch (Exception ex)
     {

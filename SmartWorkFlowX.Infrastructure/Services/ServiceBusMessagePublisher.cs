@@ -11,7 +11,7 @@ public class ServiceBusMessagePublisher : IMessagePublisher
     public ServiceBusMessagePublisher(ServiceBusClient client, IConfiguration config)
     {
         _client = client;
-        _queueName = config["AzureServiceBus:QueueName"] ?? "smartworkflow";
+        _queueName = config["AzureServiceBus:BulkNotificationQueue"] ?? "bulk-notifications";
     }
 
     public async Task PublishBulkNotificationAsync(int? targetRoleId, string messageText, int senderId)
