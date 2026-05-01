@@ -9,11 +9,16 @@ namespace SmartWorkFlowX.Application.Services
     {
         private readonly IWorkflowRepository _workflowRepo;
         private readonly IAuditLogRepository _auditRepo;
+        private readonly IMessagePublisher _messagePublisher;
 
-        public WorkflowService(IWorkflowRepository workflowRepo, IAuditLogRepository auditRepo)
+        public WorkflowService(
+            IWorkflowRepository workflowRepo,
+            IAuditLogRepository auditRepo,
+            IMessagePublisher messagePublisher)
         {
             _workflowRepo = workflowRepo;
             _auditRepo = auditRepo;
+            _messagePublisher = messagePublisher;
         }
 
         public async Task<List<WorkflowResponse>> GetAllAsync()
@@ -83,6 +88,7 @@ namespace SmartWorkFlowX.Application.Services
             };
 
             await _workflowRepo.AddAsync(workflow);
+
             await _auditRepo.AddAsync(new AuditLog
             {
                 UserId = createdByUserId,
@@ -90,6 +96,7 @@ namespace SmartWorkFlowX.Application.Services
                 EntityName = "Workflows",
                 Timestamp = DateTime.UtcNow
             });
+
             await _workflowRepo.SaveAsync();
 
             return workflow.WorkflowId;
@@ -108,6 +115,7 @@ namespace SmartWorkFlowX.Application.Services
             workflow.Status = request.Status;
 
             _workflowRepo.RemoveSteps(workflow.Steps);
+
             workflow.Steps = request.Steps.Select(s => new WorkflowStep
             {
                 WorkflowId = workflowId,
@@ -128,6 +136,15 @@ namespace SmartWorkFlowX.Application.Services
             });
 
             await _workflowRepo.SaveAsync();
+
+            if (request.Status == "Active")
+            {
+                await _messagePublisher.PublishBulkNotificationAsync(
+                    null,
+                    $"Workflow '{workflow.Title}' Activated",
+                    actingUserId
+                );
+            }
         }
 
         public async Task DeactivateAsync(int workflowId, int actingUserId)
@@ -149,6 +166,12 @@ namespace SmartWorkFlowX.Application.Services
             });
 
             await _workflowRepo.SaveAsync();
+
+            await _messagePublisher.PublishBulkNotificationAsync(
+                null,
+                $"Workflow '{workflow.Title}' Deactivated",
+                actingUserId
+            );
         }
 
         public async Task<int> CloneAsync(int workflowId, int actingUserId)
@@ -175,6 +198,7 @@ namespace SmartWorkFlowX.Application.Services
             };
 
             await _workflowRepo.AddAsync(clone);
+
             await _auditRepo.AddAsync(new AuditLog
             {
                 UserId = actingUserId,
@@ -182,11 +206,10 @@ namespace SmartWorkFlowX.Application.Services
                 EntityName = "Workflows",
                 Timestamp = DateTime.UtcNow
             });
+
             await _workflowRepo.SaveAsync();
 
             return clone.WorkflowId;
         }
     }
 }
-
-

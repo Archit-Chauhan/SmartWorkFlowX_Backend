@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
+using Microsoft.OpenApi.Models;
 using SmartWorkFlowX.Api.Hubs;
 using SmartWorkFlowX.Api.Middleware;
 using SmartWorkFlowX.Api.Services;
@@ -18,13 +20,38 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new() { Title = "SmartWorkFlowX API", Version = "v1" });
+
+   
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Enter: Bearer {your token}"
+    });
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            new string[] {}
+        }
+    });
 });
 
-// ✅ DB with retry (fixes Azure SQL cold start issue)
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
 builder.Services.AddDbContext<SmartWorkflowXDbContext>(options =>
     options.UseSqlServer(connectionString, sqlOptions =>
@@ -47,7 +74,6 @@ builder.Services.AddScoped<IReportRepository, EfReportRepository>();
 
 // ---------------- SERVICES ----------------
 
-// ✅ Fully qualified to avoid namespace conflict
 builder.Services.AddScoped<IAuthService, SmartWorkFlowX.Infrastructure.services.AuthService>();
 
 builder.Services.AddScoped<IWorkflowService, WorkflowService>();
@@ -63,6 +89,20 @@ builder.Services.AddScoped<INotificationService>(sp =>
         sp.GetRequiredService<DbNotificationService>(),
         sp.GetRequiredService<IHubContext<NotificationHub, INotificationClient>>()));
 
+// ---------------- AZURE SERVICE BUS & WORKERS ----------------
+
+builder.Services.AddSingleton(sp =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    var sbConnStr = config["AzureServiceBus:ConnectionString"] ?? throw new InvalidOperationException("Missing Service Bus Connection String");
+    return new Azure.Messaging.ServiceBus.ServiceBusClient(sbConnStr);
+});
+
+builder.Services.AddScoped<IMessagePublisher, ServiceBusMessagePublisher>();
+
+builder.Services.AddHostedService<SmartWorkFlowX.Api.Workers.WorkflowAuditWorker>();
+builder.Services.AddHostedService<SmartWorkFlowX.Api.Workers.WorkflowNotificationWorker>();
+builder.Services.AddHostedService<SmartWorkFlowX.Api.Workers.BulkNotificationWorker>();
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 
 // ---------------- AUTH ----------------
@@ -127,9 +167,8 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// ---------------- SAFE DB INIT (NON-BLOCKING) ----------------
+// ---------------- SAFE DB INIT ----------------
 
-// 🔥 Runs in background → app won't crash if DB is down
 _ = Task.Run(async () =>
 {
     using var scope = app.Services.CreateScope();
@@ -142,7 +181,6 @@ _ = Task.Run(async () =>
 
         logger.LogInformation("Starting database migration...");
 
-        // optional retry loop (extra safety)
         for (int i = 0; i < 5; i++)
         {
             try
@@ -189,10 +227,8 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// SignalR
 app.MapHub<NotificationHub>("/hubs/notifications");
 
-// Health check
 app.MapGet("/health", () =>
 {
     return Results.Ok(new
