@@ -15,6 +15,10 @@ namespace SmartWorkFlowX.Domain.Entities
         public bool IsDeleted { get; set; } = false;
         public DateTime? DeletedAt { get; set; }
 
+        // Password Reset
+        public string? ResetToken { get; set; }
+        public DateTime? ResetTokenExpiry { get; set; }
+
         // Navigation property
         public Role? Role { get; set; }
     }

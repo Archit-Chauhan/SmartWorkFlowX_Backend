@@ -28,6 +28,21 @@ namespace SmartWorkFlowX.Application.Services
                 w.WorkflowId, w.Title, w.Status, w.Steps.Count)).ToList();
         }
 
+        public async Task<PaginatedList<WorkflowResponse>> GetPaginatedAsync(int page, int pageSize)
+        {
+            var (workflows, total) = await _workflowRepo.GetPaginatedAsync(page, pageSize);
+            var mapped = workflows.Select(w => new WorkflowResponse(
+                w.WorkflowId, w.Title, w.Status, w.Steps.Count)).ToList();
+
+            return new PaginatedList<WorkflowResponse>
+            {
+                Data = mapped,
+                Total = total,
+                Page = page,
+                PageSize = pageSize
+            };
+        }
+
         public async Task<WorkflowDetailResponse> GetByIdAsync(int workflowId)
         {
             var workflow = await _workflowRepo.GetByIdWithDetailsAsync(workflowId)
