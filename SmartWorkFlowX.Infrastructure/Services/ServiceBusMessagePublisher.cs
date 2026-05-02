@@ -34,4 +34,20 @@ public class ServiceBusMessagePublisher : IMessagePublisher
 
         await sender.SendMessageAsync(message);
     }
+
+    public async Task PublishSystemEventAsync(SmartWorkFlowX.Application.Dtos.SystemEventMessage eventMessage)
+    {
+        // For System Events, we will publish to the 'workflow-events' topic
+        // Wait, I need access to the topic name from config. Let's hardcode it to "workflow-events" for simplicity since it's the standard, or use a new sender.
+        // Actually, let's create a sender for "workflow-events".
+        var topicSender = _client.CreateSender("workflow-events");
+        
+        var message = new ServiceBusMessage(JsonSerializer.Serialize(eventMessage))
+        {
+            Subject = eventMessage.EventType,
+            ContentType = "application/json"
+        };
+        
+        await topicSender.SendMessageAsync(message);
+    }
 }

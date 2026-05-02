@@ -89,15 +89,16 @@ namespace SmartWorkFlowX.Application.Services
 
             await _workflowRepo.AddAsync(workflow);
 
-            await _auditRepo.AddAsync(new AuditLog
+            await _workflowRepo.SaveAsync();
+
+            await _messagePublisher.PublishSystemEventAsync(new SystemEventMessage
             {
-                UserId = createdByUserId,
-                Action = $"Created workflow '{workflow.Title}' (Status: Draft).",
+                EventType = "WorkflowCreated",
                 EntityName = "Workflows",
+                ActionDescription = $"Created workflow '{workflow.Title}' (Status: Draft).",
+                ActedByUserId = createdByUserId,
                 Timestamp = DateTime.UtcNow
             });
-
-            await _workflowRepo.SaveAsync();
 
             return workflow.WorkflowId;
         }
@@ -127,23 +128,28 @@ namespace SmartWorkFlowX.Application.Services
                 EscalationHours = s.EscalationHours
             }).ToList();
 
-            await _auditRepo.AddAsync(new AuditLog
+            await _workflowRepo.SaveAsync();
+
+            await _messagePublisher.PublishSystemEventAsync(new SystemEventMessage
             {
-                UserId = actingUserId,
-                Action = $"Updated workflow '{workflow.Title}' (ID={workflowId}, Status={request.Status}).",
+                EventType = "WorkflowUpdated",
                 EntityName = "Workflows",
+                ActionDescription = $"Updated workflow '{workflow.Title}' (ID={workflowId}, Status={request.Status}).",
+                ActedByUserId = actingUserId,
                 Timestamp = DateTime.UtcNow
             });
 
-            await _workflowRepo.SaveAsync();
-
             if (request.Status == "Active")
             {
-                await _messagePublisher.PublishBulkNotificationAsync(
-                    null,
-                    $"Workflow '{workflow.Title}' Activated",
-                    actingUserId
-                );
+                await _messagePublisher.PublishSystemEventAsync(new SystemEventMessage
+                {
+                    EventType = "WorkflowActivated",
+                    EntityName = "Workflows",
+                    ActionDescription = $"Activated workflow '{workflow.Title}'",
+                    ActedByUserId = actingUserId,
+                    NotificationMessage = $"Workflow '{workflow.Title}' Activated",
+                    Timestamp = DateTime.UtcNow
+                });
             }
         }
 
@@ -157,21 +163,18 @@ namespace SmartWorkFlowX.Application.Services
 
             workflow.Status = "Inactive";
 
-            await _auditRepo.AddAsync(new AuditLog
+            await _workflowRepo.SaveAsync();
+
+            await _messagePublisher.PublishSystemEventAsync(new SystemEventMessage
             {
-                UserId = actingUserId,
-                Action = $"Deactivated (soft-deleted) workflow '{workflow.Title}' (ID={workflowId}).",
+                EventType = "WorkflowDeactivated",
                 EntityName = "Workflows",
+                ActionDescription = $"Deactivated (soft-deleted) workflow '{workflow.Title}' (ID={workflowId}).",
+                ActedByUserId = actingUserId,
+                NotificationMessage = $"Workflow '{workflow.Title}' Deactivated",
                 Timestamp = DateTime.UtcNow
             });
 
-            await _workflowRepo.SaveAsync();
-
-            await _messagePublisher.PublishBulkNotificationAsync(
-                null,
-                $"Workflow '{workflow.Title}' Deactivated",
-                actingUserId
-            );
         }
 
         public async Task<int> CloneAsync(int workflowId, int actingUserId)
@@ -199,15 +202,16 @@ namespace SmartWorkFlowX.Application.Services
 
             await _workflowRepo.AddAsync(clone);
 
-            await _auditRepo.AddAsync(new AuditLog
+            await _workflowRepo.SaveAsync();
+
+            await _messagePublisher.PublishSystemEventAsync(new SystemEventMessage
             {
-                UserId = actingUserId,
-                Action = $"Cloned workflow '{source.Title}' (ID={workflowId}) to new Draft '{clone.Title}'.",
+                EventType = "WorkflowCloned",
                 EntityName = "Workflows",
+                ActionDescription = $"Cloned workflow '{source.Title}' (ID={workflowId}) to new Draft '{clone.Title}'.",
+                ActedByUserId = actingUserId,
                 Timestamp = DateTime.UtcNow
             });
-
-            await _workflowRepo.SaveAsync();
 
             return clone.WorkflowId;
         }
