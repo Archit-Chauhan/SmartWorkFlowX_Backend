@@ -54,28 +54,37 @@ namespace SmartWorkFlowX.Api.Workers
             
             try
             {
-                var eventData = JsonSerializer.Deserialize<JsonElement>(body);
-                string action = eventData.GetProperty("Action").GetString();
-                string title = eventData.GetProperty("WorkflowTitle").GetString();
-
-                string notificationMessage = $"The workflow template '{title}' has been {action}.";
+                var eventData = JsonSerializer.Deserialize<SmartWorkFlowX.Application.Dtos.SystemEventMessage>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                if (eventData == null || string.IsNullOrWhiteSpace(eventData.NotificationMessage))
+                {
+                    await args.CompleteMessageAsync(args.Message);
+                    return;
+                }
 
                 using var scope = _serviceProvider.CreateScope();
                 var dbContext = scope.ServiceProvider.GetRequiredService<SmartWorkflowXDbContext>();
                 var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
 
-                // Find all users with Manager role (roleId = 2 usually, but we should query safely)
-                var managerRole = await dbContext.Roles.FirstOrDefaultAsync(r => r.RoleName == "Manager");
-                if (managerRole != null)
+                if (eventData.TargetUserId.HasValue)
                 {
-                    var managerIds = await dbContext.Users
-                        .Where(u => u.RoleId == managerRole.RoleId)
-                        .Select(u => u.UserId)
-                        .ToListAsync();
-
-                    foreach (var managerId in managerIds)
+                    // Targeted notification (e.g. Task Assigned)
+                    await notificationService.SendNotificationAsync(eventData.TargetUserId.Value, eventData.NotificationMessage);
+                }
+                else if (eventData.EntityName == "Workflows")
+                {
+                    // Broadcast notification to Managers (e.g. Workflow Created)
+                    var managerRole = await dbContext.Roles.FirstOrDefaultAsync(r => r.RoleName == "Manager");
+                    if (managerRole != null)
                     {
-                        await notificationService.SendNotificationAsync(managerId, notificationMessage);
+                        var managerIds = await dbContext.Users
+                            .Where(u => u.RoleId == managerRole.RoleId)
+                            .Select(u => u.UserId)
+                            .ToListAsync();
+
+                        foreach (var managerId in managerIds)
+                        {
+                            await notificationService.SendNotificationAsync(managerId, eventData.NotificationMessage);
+                        }
                     }
                 }
 

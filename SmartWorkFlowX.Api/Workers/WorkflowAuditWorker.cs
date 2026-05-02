@@ -56,11 +56,12 @@ namespace SmartWorkFlowX.Api.Workers
 
             try
             {
-                var eventData = JsonSerializer.Deserialize<JsonElement>(body);
-                int workflowId = eventData.GetProperty("WorkflowId").GetInt32();
-                string action = eventData.GetProperty("Action").GetString();
-                string title = eventData.GetProperty("WorkflowTitle").GetString();
-                int actedBy = eventData.GetProperty("ActedByUserId").GetInt32();
+                var eventData = JsonSerializer.Deserialize<SmartWorkFlowX.Application.Dtos.SystemEventMessage>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                if (eventData == null || string.IsNullOrWhiteSpace(eventData.ActionDescription))
+                {
+                    await args.CompleteMessageAsync(args.Message);
+                    return;
+                }
 
                 // Create a scope to resolve scoped services like repositories
                 using var scope = _serviceProvider.CreateScope();
@@ -68,10 +69,10 @@ namespace SmartWorkFlowX.Api.Workers
 
                 await auditRepo.AddAsync(new AuditLog
                 {
-                    UserId = actedBy,
-                    Action = $"Workflow Event Broadcast: '{title}' was {action}.",
-                    EntityName = "Workflows",
-                    Timestamp = DateTime.UtcNow
+                    UserId = eventData.ActedByUserId,
+                    Action = eventData.ActionDescription,
+                    EntityName = eventData.EntityName,
+                    Timestamp = eventData.Timestamp
                 });
                 
                 await auditRepo.SaveAsync();

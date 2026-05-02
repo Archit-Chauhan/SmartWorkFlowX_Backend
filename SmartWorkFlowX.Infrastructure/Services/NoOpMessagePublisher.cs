@@ -13,4 +13,9 @@ public class NoOpMessagePublisher : IMessagePublisher
         // Intentionally a no-op — Service Bus is not configured in this environment.
         return Task.CompletedTask;
     }
+
+    public Task PublishSystemEventAsync(SmartWorkFlowX.Application.Dtos.SystemEventMessage eventMessage)
+    {
+        return Task.CompletedTask;
+    }
 }

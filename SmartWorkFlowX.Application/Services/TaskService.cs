@@ -11,17 +11,20 @@ namespace SmartWorkFlowX.Application.Services
         private readonly IWorkflowRepository _workflowRepo;
         private readonly IAuditLogRepository _auditRepo;
         private readonly INotificationService _notificationService;
+        private readonly IMessagePublisher _messagePublisher;
 
         public TaskService(
             ITaskRepository taskRepo,
             IWorkflowRepository workflowRepo,
             IAuditLogRepository auditRepo,
-            INotificationService notificationService)
+            INotificationService notificationService,
+            IMessagePublisher messagePublisher)
         {
             _taskRepo = taskRepo;
             _workflowRepo = workflowRepo;
             _auditRepo = auditRepo;
             _notificationService = notificationService;
+            _messagePublisher = messagePublisher;
         }
 
         public async Task<List<object>> GetMyTasksAsync(int userId)
@@ -89,18 +92,18 @@ namespace SmartWorkFlowX.Application.Services
             };
 
             await _taskRepo.AddAsync(newTask);
-            await _auditRepo.AddAsync(new AuditLog
-            {
-                UserId = actingUserId,
-                Action = $"Assigned task '{request.Title}' (Priority={request.Priority}) via workflow '{workflow.Title}' to User ID={request.AssignedTo}.",
-                EntityName = "Tasks",
-                Timestamp = DateTime.UtcNow
-            });
             await _taskRepo.SaveAsync();
 
-            await _notificationService.SendNotificationAsync(
-                request.AssignedTo,
-                $"You have been assigned a new task: '{request.Title}' (Priority: {request.Priority}).");
+            await _messagePublisher.PublishSystemEventAsync(new SystemEventMessage
+            {
+                EventType = "TaskAssigned",
+                EntityName = "Tasks",
+                ActionDescription = $"Assigned task '{request.Title}' (Priority={request.Priority}) via workflow '{workflow.Title}' to User ID={request.AssignedTo}.",
+                ActedByUserId = actingUserId,
+                TargetUserId = request.AssignedTo,
+                NotificationMessage = $"You have been assigned a new task: '{request.Title}' (Priority: {request.Priority}).",
+                Timestamp = DateTime.UtcNow
+            });
 
             return newTask.TaskId;
         }
@@ -143,10 +146,6 @@ namespace SmartWorkFlowX.Application.Services
                 task.AssignedTo = nextApprover.UserId;
                 task.CurrentStepOrder = nextStep.StepOrder;
                 task.Status = "In Progress";
-
-                await _notificationService.SendNotificationAsync(
-                    nextApprover.UserId,
-                    $"Task '{task.Title}' requires your approval at step {nextStep.StepOrder}: {nextStep.StepName}.");
             }
             else
             {
@@ -155,14 +154,18 @@ namespace SmartWorkFlowX.Application.Services
                 task.AssignedTo = null;
             }
 
-            await _auditRepo.AddAsync(new AuditLog
+            await _taskRepo.SaveAsync();
+
+            await _messagePublisher.PublishSystemEventAsync(new SystemEventMessage
             {
-                UserId = actingUserId,
-                Action = $"{actionLabel} Task ID={taskId} at Step {task.CurrentStepOrder}. New Status: {task.Status}.",
+                EventType = "TaskApproved",
                 EntityName = "Tasks",
+                ActionDescription = $"{actionLabel} Task ID={taskId} at Step {task.CurrentStepOrder}. New Status: {task.Status}.",
+                ActedByUserId = actingUserId,
+                TargetUserId = nextStep != null ? task.AssignedTo : null,
+                NotificationMessage = nextStep != null ? $"Task '{task.Title}' requires your approval at step {nextStep.StepOrder}: {nextStep.StepName}." : string.Empty,
                 Timestamp = DateTime.UtcNow
             });
-            await _taskRepo.SaveAsync();
 
             return task.Status;
         }
@@ -212,10 +215,6 @@ namespace SmartWorkFlowX.Application.Services
                         task.AssignedTo = prevApprover.UserId;
                         task.CurrentStepOrder = previousStep.StepOrder;
                         task.Status = "In Progress";
-
-                        await _notificationService.SendNotificationAsync(
-                            prevApprover.UserId,
-                            $"Task '{task.Title}' was rejected at step {task.CurrentStepOrder + 1} and has been sent back to you (Step {previousStep.StepOrder}: {previousStep.StepName}) for review.");
                     }
                     else
                     {
@@ -229,10 +228,6 @@ namespace SmartWorkFlowX.Application.Services
                     task.AssignedTo = task.OriginalAssignedTo.Value;
                     task.CurrentStepOrder = 0;
                     task.Status = "In Progress";
-
-                    await _notificationService.SendNotificationAsync(
-                        task.OriginalAssignedTo.Value,
-                        $"Task '{task.Title}' was rejected and has been sent back to you for revision.");
                 }
                 else
                 {
@@ -247,14 +242,32 @@ namespace SmartWorkFlowX.Application.Services
                 task.AssignedTo = null;
             }
 
-            await _auditRepo.AddAsync(new AuditLog
+            await _taskRepo.SaveAsync();
+
+            string notificationMessage = string.Empty;
+            if (task.Status == "In Progress" && task.AssignedTo.HasValue)
             {
-                UserId = actingUserId,
-                Action = $"Rejected Task ID={taskId} at Step {task.CurrentStepOrder}. Reason: {request.Reason}. New Status: {task.Status}.",
+                if (task.CurrentStepOrder > 0)
+                {
+                    var prevStepName = task.Workflow?.Steps.FirstOrDefault(s => s.StepOrder == task.CurrentStepOrder)?.StepName ?? "Previous Step";
+                    notificationMessage = $"Task '{task.Title}' was rejected at step {task.CurrentStepOrder + 1} and has been sent back to you (Step {task.CurrentStepOrder}: {prevStepName}) for review.";
+                }
+                else
+                {
+                    notificationMessage = $"Task '{task.Title}' was rejected and has been sent back to you for revision.";
+                }
+            }
+
+            await _messagePublisher.PublishSystemEventAsync(new SystemEventMessage
+            {
+                EventType = "TaskRejected",
                 EntityName = "Tasks",
+                ActionDescription = $"Rejected Task ID={taskId} at Step {task.CurrentStepOrder}. Reason: {request.Reason}. New Status: {task.Status}.",
+                ActedByUserId = actingUserId,
+                TargetUserId = task.AssignedTo,
+                NotificationMessage = notificationMessage,
                 Timestamp = DateTime.UtcNow
             });
-            await _taskRepo.SaveAsync();
 
             return task.Status;
         }
