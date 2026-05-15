@@ -15,6 +15,7 @@ namespace SmartWorkFlowX.Infrastructure.Repositories
 
         public async Task<User?> GetByEmailWithRoleAsync(string email)
             => await _context.Users
+                .IgnoreQueryFilters()
                 .Include(u => u.Role)
                 .FirstOrDefaultAsync(u => u.Email == email);
 

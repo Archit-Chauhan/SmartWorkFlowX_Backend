@@ -1,5 +1,7 @@
 using Azure.Messaging.ServiceBus.Administration;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication.Google;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -115,7 +117,11 @@ builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 
 // ---------------- AUTH ----------------
 
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
     .AddJwtBearer(options =>
     {
         options.TokenValidationParameters = new TokenValidationParameters
@@ -146,6 +152,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 return Task.CompletedTask;
             }
         };
+    })
+    .AddCookie("ExternalCookie")
+    .AddGoogle(options =>
+    {
+        options.SignInScheme = "ExternalCookie";
+        options.ClientId = builder.Configuration["Authentication:Google:ClientId"] ?? "PLACEHOLDER";
+        options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"] ?? "PLACEHOLDER";
     });
 
 builder.Services.AddAuthorization();
