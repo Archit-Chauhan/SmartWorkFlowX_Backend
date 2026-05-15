@@ -364,3 +364,6 @@ FodyWeavers.xsd
 
 # Temporary Sandbox/Scratches
 Scratch/
+
+# Environment specific config
+appsettings.Development.json

@@ -4,6 +4,9 @@ using SmartWorkFlowX.Application.Services;
 using SmartWorkFlowX.Domain.Entities;
 using SmartWorkFlowX.Domain.Repositories;
 using System.Text.Json;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Google;
+using System.Security.Claims;
 
 namespace SmartWorkFlowX.Api.Controllers
 {
@@ -13,6 +16,7 @@ namespace SmartWorkFlowX.Api.Controllers
     {
         private readonly IUserRepository _userRepo;
         private readonly IAuditLogRepository _auditRepo;
+        private readonly IRoleRepository _roleRepo;
         private readonly IAuthService _authService;
         private readonly IConfiguration _configuration;
         private readonly IHttpClientFactory _httpClientFactory;
@@ -20,12 +24,14 @@ namespace SmartWorkFlowX.Api.Controllers
         public AuthController(
             IUserRepository userRepo,
             IAuditLogRepository auditRepo,
+            IRoleRepository roleRepo,
             IAuthService authService,
             IConfiguration configuration,
             IHttpClientFactory httpClientFactory)
         {
             _userRepo = userRepo;
             _auditRepo = auditRepo;
+            _roleRepo = roleRepo;
             _authService = authService;
             _configuration = configuration;
             _httpClientFactory = httpClientFactory;
@@ -37,6 +43,8 @@ namespace SmartWorkFlowX.Api.Controllers
             var user = await _userRepo.GetByEmailWithRoleAsync(request.Email);
 
             if (user == null) return Unauthorized("Invalid credentials.");
+
+            if (user.IsDeleted) return Unauthorized("Your account has been deactivated.");
 
             if (!_authService.VerifyPassword(request.Password, user.PasswordHash))
                 return Unauthorized("Invalid credentials.");
@@ -115,6 +123,52 @@ namespace SmartWorkFlowX.Api.Controllers
             {
                 return BadRequest(ex.Message);
             }
+        }
+
+        [HttpGet("google-login")]
+        public IActionResult GoogleLogin()
+        {
+            var properties = new AuthenticationProperties { RedirectUri = Url.Action("GoogleCallback") };
+            return Challenge(properties, GoogleDefaults.AuthenticationScheme);
+        }
+
+        [HttpGet("google-callback")]
+        public async Task<IActionResult> GoogleCallback()
+        {
+            var authenticateResult = await HttpContext.AuthenticateAsync("ExternalCookie");
+            if (!authenticateResult.Succeeded)
+                return BadRequest("External authentication failed.");
+
+            var email = authenticateResult.Principal.FindFirstValue(ClaimTypes.Email);
+            var name = authenticateResult.Principal.FindFirstValue(ClaimTypes.Name);
+
+            if (string.IsNullOrEmpty(email))
+                return BadRequest("Email claim is missing from external provider.");
+
+            var user = await _userRepo.GetByEmailWithRoleAsync(email);
+
+            if (user != null && user.IsDeleted)
+                return Unauthorized("Your account has been deactivated.");
+
+            if (user == null)
+            {
+                return Unauthorized("Your account is not registered in the system. Please contact an administrator.");
+            }
+
+            await _auditRepo.AddAsync(new AuditLog
+            {
+                UserId = user!.UserId,
+                Action = $"User '{user.Email}' logged in via Google.",
+                EntityName = "Users",
+                Timestamp = DateTime.UtcNow
+            });
+            await _auditRepo.SaveAsync();
+
+            var token = _authService.GenerateToken(user, user.Role!.RoleName);
+
+            // Determine frontend URL (in production this should be read from config)
+            var frontendUrl = _configuration["FrontendUrl"] ?? "http://localhost:5173";
+            return Redirect($"{frontendUrl}/oauth-callback?token={token}&email={Uri.EscapeDataString(user.Email)}&role={Uri.EscapeDataString(user.Role.RoleName)}");
         }
     }
 }
