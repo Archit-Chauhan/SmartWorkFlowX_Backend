@@ -19,6 +19,7 @@ var builder = WebApplication.CreateBuilder(args);
 // ---------------- SERVICES ----------------
 
 builder.Services.AddControllers();
+builder.Services.AddHttpClient(); // for Cloudflare Turnstile verification
 builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddSwaggerGen(c =>
