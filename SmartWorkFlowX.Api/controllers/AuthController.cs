@@ -3,6 +3,7 @@ using SmartWorkFlowX.Application.Dtos;
 using SmartWorkFlowX.Application.Services;
 using SmartWorkFlowX.Domain.Entities;
 using SmartWorkFlowX.Domain.Repositories;
+using System.Text.Json;
 
 namespace SmartWorkFlowX.Api.Controllers
 {
@@ -13,15 +14,21 @@ namespace SmartWorkFlowX.Api.Controllers
         private readonly IUserRepository _userRepo;
         private readonly IAuditLogRepository _auditRepo;
         private readonly IAuthService _authService;
+        private readonly IConfiguration _configuration;
+        private readonly IHttpClientFactory _httpClientFactory;
 
         public AuthController(
             IUserRepository userRepo,
             IAuditLogRepository auditRepo,
-            IAuthService authService)
+            IAuthService authService,
+            IConfiguration configuration,
+            IHttpClientFactory httpClientFactory)
         {
             _userRepo = userRepo;
             _auditRepo = auditRepo;
             _authService = authService;
+            _configuration = configuration;
+            _httpClientFactory = httpClientFactory;
         }
 
         [HttpPost("login")]
@@ -53,8 +60,30 @@ namespace SmartWorkFlowX.Api.Controllers
             if (string.IsNullOrWhiteSpace(request.Email))
                 return BadRequest("Email is required.");
 
-            // In production, you would determine origin Url from request headers, e.g. Request.Headers["Origin"]
-            // Since frontend is usually on 5173 for Vite or 3000 for React
+            // --- Cloudflare Turnstile verification ---
+            if (string.IsNullOrWhiteSpace(request.TurnstileToken))
+                return BadRequest("Security check token is required.");
+
+            var secretKey = _configuration["Turnstile:SecretKey"];
+            var httpClient = _httpClientFactory.CreateClient();
+            var verifyContent = new FormUrlEncodedContent(new[]
+            {
+                new KeyValuePair<string, string>("secret", secretKey!),
+                new KeyValuePair<string, string>("response", request.TurnstileToken),
+                new KeyValuePair<string, string>("remoteip", HttpContext.Connection.RemoteIpAddress?.ToString() ?? "")
+            });
+
+            var verifyResponse = await httpClient.PostAsync(
+                "https://challenges.cloudflare.com/turnstile/v0/siteverify", verifyContent);
+
+            var verifyBody = await verifyResponse.Content.ReadAsStringAsync();
+            using var jsonDoc = JsonDocument.Parse(verifyBody);
+            var isSuccess = jsonDoc.RootElement.GetProperty("success").GetBoolean();
+
+            if (!isSuccess)
+                return BadRequest("Security check failed. Please try again.");
+            // -----------------------------------------
+
             var origin = "http://localhost:5173"; 
             if (Request.Headers.TryGetValue("Origin", out var originHeader))
             {
