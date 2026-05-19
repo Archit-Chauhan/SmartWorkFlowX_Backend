@@ -65,13 +65,9 @@ namespace SmartWorkFlowX.Api.Controllers
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.Email))
-                return BadRequest("Email is required.");
+
 
             // --- Cloudflare Turnstile verification ---
-            if (string.IsNullOrWhiteSpace(request.TurnstileToken))
-                return BadRequest("Security check token is required.");
-
             var secretKey = _configuration["Turnstile:SecretKey"];
             var httpClient = _httpClientFactory.CreateClient();
             var verifyContent = new FormUrlEncodedContent(new[]
@@ -107,12 +103,7 @@ namespace SmartWorkFlowX.Api.Controllers
         [HttpPost("reset-password")]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.Email) || 
-                string.IsNullOrWhiteSpace(request.Token) || 
-                string.IsNullOrWhiteSpace(request.NewPassword))
-            {
-                return BadRequest("All fields are required.");
-            }
+
 
             try
             {

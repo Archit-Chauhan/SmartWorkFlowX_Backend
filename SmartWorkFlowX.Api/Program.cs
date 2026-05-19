@@ -176,7 +176,8 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(
                 "http://localhost:3000",
                 "http://localhost:5173",
-                "https://smart-work-flow-x-frontend.vercel.app"
+				"http://localhost:5174",
+				"https://smart-work-flow-x-frontend.vercel.app"
             )
             .AllowAnyHeader()
             .AllowAnyMethod()
