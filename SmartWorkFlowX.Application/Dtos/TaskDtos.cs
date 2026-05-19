@@ -1,19 +1,21 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace SmartWorkFlowX.Application.Dtos
 {
     // --- Request DTOs ---
 
     public record TaskCreateRequest(
-        string Title,
+        [Required] string Title,
         string Description,
-        int WorkflowId,
-        int AssignedTo,
-        string Priority,     // Low | Medium | High
+        [Required] int WorkflowId,
+        [Required] int AssignedTo,
+        [Required] string Priority,     // Low | Medium | High
         DateTime? DueDate
     );
 
-    public record TaskStatusUpdateRequest(string Status);
+    public record TaskStatusUpdateRequest([Required] string Status);
 
-    public record TaskRejectRequest(string Reason, string? Comment);
+    public record TaskRejectRequest([Required] string Reason, string? Comment);
 
     // --- Response DTOs ---
 

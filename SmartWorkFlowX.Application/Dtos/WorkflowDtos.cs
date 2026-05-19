@@ -1,27 +1,29 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace SmartWorkFlowX.Application.Dtos
 {
     // --- Request DTOs ---
 
     public record WorkflowStepCreateDto(
-        int StepOrder,
-        int ApproverRoleId,
-        string StepName,
+        [Required] int StepOrder,
+        [Required] int ApproverRoleId,
+        [Required] string StepName,
         string? Description,
-        string OnRejectAction,   // "GoBack" | "Cancel"
+        [Required] string OnRejectAction,   // "GoBack" | "Cancel"
         int? EscalationHours
     );
 
     public record WorkflowCreateRequest(
-        string Title,
+        [Required] string Title,
         string Description,
-        List<WorkflowStepCreateDto> Steps
+        [Required] List<WorkflowStepCreateDto> Steps
     );
 
     public record WorkflowUpdateRequest(
-        string Title,
+        [Required] string Title,
         string Description,
-        string Status,           // Draft | Active | Inactive
-        List<WorkflowStepCreateDto> Steps
+        [Required] string Status,           // Draft | Active | Inactive
+        [Required] List<WorkflowStepCreateDto> Steps
     );
 
     // --- Response DTOs ---
