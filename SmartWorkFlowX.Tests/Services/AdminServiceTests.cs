@@ -72,6 +72,65 @@ namespace SmartWorkFlowX.Tests.Services
         }
 
         [Fact]
+        public async Task GetPaginatedUsersAsync_ShouldReturnCorrectPageAndTotal()
+        {
+            // Arrange
+            var role = new Role { RoleId = 1, RoleName = "Employee" };
+            var users = new List<User>
+            {
+                new User { UserId = 3, Name = "Carol", Email = "carol@example.com", RoleId = 1, Role = role, CreatedAt = DateTime.UtcNow }
+            };
+
+            _userRepoMock.Setup(r => r.GetPaginatedAsync(2, 10))
+                .ReturnsAsync((users, 21));
+
+            // Act
+            var result = await _adminService.GetPaginatedUsersAsync(2, 10);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(21, result.Total);
+            Assert.Equal(2, result.Page);
+            Assert.Equal(10, result.PageSize);
+            Assert.Single(result.Data);
+
+            var json = System.Text.Json.JsonSerializer.Serialize(result.Data);
+            var doc = System.Text.Json.JsonDocument.Parse(json);
+            Assert.Equal("Carol", doc.RootElement[0].GetProperty("Name").GetString());
+            Assert.Equal("Employee", doc.RootElement[0].GetProperty("RoleName").GetString());
+        }
+
+        [Fact]
+        public async Task GetAllRolesAsync_ShouldReturnAllRoles()
+        {
+            // Arrange
+            var roles = new List<Role>
+            {
+                new Role { RoleId = 1, RoleName = "Admin" },
+                new Role { RoleId = 2, RoleName = "Employee" }
+            };
+
+            _roleRepoMock.Setup(r => r.GetAllAsync())
+                .ReturnsAsync(roles);
+
+            // Act
+            var result = await _adminService.GetAllRolesAsync();
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(2, result.Count);
+
+            var json = System.Text.Json.JsonSerializer.Serialize(result);
+            var doc = System.Text.Json.JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            Assert.Equal(1, root[0].GetProperty("RoleId").GetInt32());
+            Assert.Equal("Admin", root[0].GetProperty("RoleName").GetString());
+            Assert.Equal(2, root[1].GetProperty("RoleId").GetInt32());
+            Assert.Equal("Employee", root[1].GetProperty("RoleName").GetString());
+        }
+
+        [Fact]
         public async Task CreateUserAsync_ShouldThrowException_WhenEmailExists()
         {
             // Arrange
@@ -100,36 +159,29 @@ namespace SmartWorkFlowX.Tests.Services
             _authServiceMock.Setup(s => s.HashPassword(request.Password))
                 .Returns("hashed_secret_password");
 
-            var roles = new List<Role>
-            {
-                new Role { RoleId = 3, RoleName = "Employee" }
-            };
-            _roleRepoMock.Setup(r => r.GetAllAsync())
-                .ReturnsAsync(roles);
-
             // Act
             var userId = await _adminService.CreateUserAsync(request, 1);
 
             // Assert
-            _userRepoMock.Verify(r => r.AddAsync(It.Is<User>(u => 
-                u.Name == request.Name && 
-                u.Email == request.Email && 
-                u.PasswordHash == "hashed_secret_password" && 
+            _userRepoMock.Verify(r => r.AddAsync(It.Is<User>(u =>
+                u.Name == request.Name &&
+                u.Email == request.Email &&
+                u.PasswordHash == "hashed_secret_password" &&
                 u.RoleId == request.RoleId
             )), Times.Once);
 
-            _auditRepoMock.Verify(r => r.AddAsync(It.Is<AuditLog>(log => 
-                log.UserId == 1 && 
-                log.Action.Contains("Admin created user 'new@example.com'") && 
+            _auditRepoMock.Verify(r => r.AddAsync(It.Is<AuditLog>(log =>
+                log.UserId == 1 &&
+                log.Action.Contains("Admin created user 'new@example.com'") &&
                 log.EntityName == "Users"
             )), Times.Once);
 
             _userRepoMock.Verify(r => r.SaveAsync(), Times.Once);
 
             _emailServiceMock.Verify(s => s.SendEmailAsync(
-                request.Email, 
-                It.Is<string>(subject => subject.Contains("Welcome to SmartWorkFlowX")), 
-                It.Is<string>(body => body.Contains("Temporary Password") && body.Contains("SecretPassword"))
+                request.Email,
+                It.Is<string>(subject => subject.Contains("Welcome to SmartWorkFlowX")),
+                It.Is<string>(body => body.Contains("Password:") && body.Contains("SecretPassword"))
             ), Times.Once);
         }
 
@@ -172,10 +224,10 @@ namespace SmartWorkFlowX.Tests.Services
 
             // Assert
             _userRepoMock.Verify(r => r.SoftDeleteAsync(2), Times.Once);
-            
-            _auditRepoMock.Verify(r => r.AddAsync(It.Is<AuditLog>(log => 
-                log.UserId == 1 && 
-                log.Action.Contains("Admin deleted user 'delete_me@example.com'") && 
+
+            _auditRepoMock.Verify(r => r.AddAsync(It.Is<AuditLog>(log =>
+                log.UserId == 1 &&
+                log.Action.Contains("Admin deleted user 'delete_me@example.com'") &&
                 log.EntityName == "Users"
             )), Times.Once);
 
