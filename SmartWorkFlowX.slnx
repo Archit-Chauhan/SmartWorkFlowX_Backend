@@ -3,4 +3,5 @@
   <Project Path="SmartWorkFlowX.Application/SmartWorkFlowX.Application.csproj" />
   <Project Path="SmartWorkFlowX.Domain/SmartWorkFlowX.Domain.csproj" />
   <Project Path="SmartWorkFlowX.Infrastructure/SmartWorkFlowX.Infrastructure.csproj" />
+  <Project Path="SmartWorkFlowX.Tests/SmartWorkFlowX.Tests.csproj" />
 </Solution>
