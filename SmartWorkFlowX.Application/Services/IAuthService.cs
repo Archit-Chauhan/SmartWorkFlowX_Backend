@@ -13,6 +13,7 @@ namespace SmartWorkFlowX.Application.Services
         bool VerifyPassword(string plainText, string hash);
         Task ForgotPasswordAsync(string email, string originUrl);
         Task ResetPasswordAsync(string email, string token, string newPassword);
+        Task ChangePasswordAsync(int userId, string currentPassword, string newPassword);
     }
 }
 

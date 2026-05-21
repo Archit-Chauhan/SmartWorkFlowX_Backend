@@ -8,7 +8,8 @@ namespace SmartWorkFlowX.Application.Services
     public interface IReportService
     {
         Task<SystemAnalyticsDto> GetAnalyticsAsync();
-        Task<PaginatedList<AuditLogResponse>> GetAuditLogsAsync(int page, int pageSize);
+        Task<PaginatedList<AuditLogResponse>> GetAuditLogsAsync(int page, int pageSize, string? search = null);
+        Task<List<AuditLogResponse>> GetAllAuditLogsAsync(string? search = null);
         Task<List<object>> GetOverdueTasksAsync();
     }
 }

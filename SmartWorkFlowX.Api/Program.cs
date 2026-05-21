@@ -2,6 +2,7 @@ using Azure.Messaging.ServiceBus.Administration;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -15,6 +16,7 @@ using SmartWorkFlowX.Infrastructure.Data;
 using SmartWorkFlowX.Infrastructure.Repositories;
 using SmartWorkFlowX.Infrastructure.Services;
 using System.Text;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -163,6 +165,31 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
+// ---------------- RATE LIMITING ----------------
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    // Strict limit for auth endpoints (login, forgot-password): 5 requests per minute per IP
+    options.AddFixedWindowLimiter("auth", policy =>
+    {
+        policy.Window = TimeSpan.FromMinutes(1);
+        policy.PermitLimit = 5;
+        policy.QueueLimit = 0;
+        policy.AutoReplenishment = true;
+    });
+
+    // General API limit: 60 requests per minute per IP
+    options.AddFixedWindowLimiter("api", policy =>
+    {
+        policy.Window = TimeSpan.FromMinutes(1);
+        policy.PermitLimit = 60;
+        policy.QueueLimit = 0;
+        policy.AutoReplenishment = true;
+    });
+});
+
 // ---------------- SIGNALR ----------------
 
 builder.Services.AddSignalR();
@@ -275,6 +302,8 @@ _ = Task.Run(async () =>
 app.UseGlobalExceptionHandler();
 
 app.UseCors("AllowFrontend");
+
+app.UseRateLimiter();
 
 if (app.Environment.IsDevelopment())
 {

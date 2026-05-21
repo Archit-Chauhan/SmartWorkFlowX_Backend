@@ -27,9 +27,9 @@ namespace SmartWorkFlowX.Application.Services
             _emailService = emailService;
         }
 
-        public async Task<List<object>> GetAllUsersAsync()
+        public async Task<List<object>> GetAllUsersAsync(string? search = null)
         {
-            var users = await _userRepo.GetAllWithRolesAsync();
+            var users = await _userRepo.GetAllWithRolesAsync(search);
             return users.Select(u => (object)new
             {
                 u.UserId,
@@ -41,9 +41,9 @@ namespace SmartWorkFlowX.Application.Services
             }).ToList();
         }
 
-        public async Task<PaginatedList<object>> GetPaginatedUsersAsync(int page, int limit)
+        public async Task<PaginatedList<object>> GetPaginatedUsersAsync(int page, int limit, string? search = null)
         {
-            var (users, total) = await _userRepo.GetPaginatedAsync(page, limit);
+            var (users, total) = await _userRepo.GetPaginatedAsync(page, limit, search);
             var mapped = users.Select(u => (object)new
             {
                 u.UserId,

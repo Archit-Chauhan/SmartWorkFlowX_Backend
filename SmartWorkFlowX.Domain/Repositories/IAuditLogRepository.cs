@@ -11,7 +11,8 @@ namespace SmartWorkFlowX.Domain.Repositories
     public interface IAuditLogRepository
     {
         Task AddAsync(AuditLog log);
-        Task<(List<AuditLog> Items, int Total)> GetPagedWithUserAsync(int page, int pageSize);
+        Task<(List<AuditLog> Items, int Total)> GetPagedWithUserAsync(int page, int pageSize, string? search = null);
+        Task<List<AuditLog>> GetAllWithUserAsync(string? search = null);
         Task SaveAsync();
     }
 }

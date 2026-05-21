@@ -48,7 +48,7 @@ namespace SmartWorkFlowX.Tests.Services
                 new User { UserId = 2, Name = "Bob", Email = "bob@example.com", RoleId = 2, Role = null, CreatedAt = DateTime.UtcNow }
             };
 
-            _userRepoMock.Setup(r => r.GetAllWithRolesAsync())
+            _userRepoMock.Setup(r => r.GetAllWithRolesAsync(It.IsAny<string?>()))
                 .ReturnsAsync(users);
 
             // Act
@@ -81,7 +81,7 @@ namespace SmartWorkFlowX.Tests.Services
                 new User { UserId = 3, Name = "Carol", Email = "carol@example.com", RoleId = 1, Role = role, CreatedAt = DateTime.UtcNow }
             };
 
-            _userRepoMock.Setup(r => r.GetPaginatedAsync(2, 10))
+            _userRepoMock.Setup(r => r.GetPaginatedAsync(2, 10, It.IsAny<string?>()))
                 .ReturnsAsync((users, 21));
 
             // Act

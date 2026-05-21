@@ -96,6 +96,18 @@ namespace SmartWorkFlowX.Infrastructure.services
             user.ResetTokenExpiry = null;
             await _userRepo.SaveAsync();
         }
+
+        public async Task ChangePasswordAsync(int userId, string currentPassword, string newPassword)
+        {
+            var user = await _userRepo.GetByIdAsync(userId)
+                ?? throw new ArgumentException("User not found.");
+
+            if (!VerifyPassword(currentPassword, user.PasswordHash))
+                throw new ArgumentException("Current password is incorrect.");
+
+            user.PasswordHash = HashPassword(newPassword);
+            await _userRepo.SaveAsync();
+        }
     }
 }
 

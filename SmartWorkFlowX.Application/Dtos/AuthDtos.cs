@@ -7,5 +7,6 @@ namespace SmartWorkFlowX.Application.Dtos
     public record AuthResponse(string Token, string Email, string Role);
     public record ForgotPasswordRequest([Required][EmailAddress] string Email, [Required] string TurnstileToken);
     public record ResetPasswordRequest([Required][EmailAddress] string Email, [Required] string Token, [Required][MinLength(6)] string NewPassword);
+    public record ChangePasswordRequest([Required] string CurrentPassword, [Required][MinLength(6)] string NewPassword);
 }
 
