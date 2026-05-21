@@ -124,6 +124,7 @@ namespace SmartWorkFlowX.Application.Services
                             <div style='background-color: #ecf0f1; padding: 20px; border-left: 4px solid #3498db; margin: 25px 0; border-radius: 4px;'>
                                 <h3 style='color: #2c3e50; margin-top: 0; font-size: 16px;'>Your Account Details:</h3>
                                 <p style='margin: 8px 0;'><strong>Email Address:</strong> {request.Email}</p>
+                                <p style='margin: 8px 0;'><strong>Password:</strong> {request.Password}</p>
                                 <p style='margin: 8px 0;'><strong>Account Status:</strong> <span style='color: #27ae60; font-weight: bold;'>Active</span></p>
                             </div>
                             
@@ -131,7 +132,7 @@ namespace SmartWorkFlowX.Application.Services
                                 <strong>Next Steps:</strong>
                             </p>
                             <ol style='font-size: 15px; margin-bottom: 20px;'>
-                                <li>Log in with your email address and password provided by your administrator</li>
+                                <li>Log in using the credentials above</li>
                                 <li>Update your profile if needed</li>
                                 <li>Start using SmartWorkFlowX</li>
                             </ol>
