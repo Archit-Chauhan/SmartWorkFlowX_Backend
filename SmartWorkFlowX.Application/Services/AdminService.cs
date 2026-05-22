@@ -37,7 +37,9 @@ namespace SmartWorkFlowX.Application.Services
                 u.Email,
                 RoleName = u.Role?.RoleName ?? "No Role",
                 u.RoleId,
-                u.CreatedAt
+                u.CreatedAt,
+                u.IsDeleted,
+                u.DeletedAt
             }).ToList();
         }
 
@@ -51,7 +53,9 @@ namespace SmartWorkFlowX.Application.Services
                 u.Email,
                 RoleName = u.Role?.RoleName ?? "No Role",
                 u.RoleId,
-                u.CreatedAt
+                u.CreatedAt,
+                u.IsDeleted,
+                u.DeletedAt
             }).ToList();
 
             return new PaginatedList<object>
@@ -177,6 +181,22 @@ namespace SmartWorkFlowX.Application.Services
             {
                 UserId = actingUserId,
                 Action = $"Admin deleted user '{user.Email}' (ID={targetUserId}).",
+                EntityName = "Users",
+                Timestamp = DateTime.UtcNow
+            });
+            await _userRepo.SaveAsync();
+        }
+
+        public async Task RestoreUserAsync(int targetUserId, int actingUserId)
+        {
+            var user = await _userRepo.GetByIdAsync(targetUserId)
+                ?? throw new KeyNotFoundException("User not found.");
+
+            await _userRepo.RestoreAsync(targetUserId);
+            await _auditRepo.AddAsync(new AuditLog
+            {
+                UserId = actingUserId,
+                Action = $"Admin restored user '{user.Email}' (ID={targetUserId}).",
                 EntityName = "Users",
                 Timestamp = DateTime.UtcNow
             });

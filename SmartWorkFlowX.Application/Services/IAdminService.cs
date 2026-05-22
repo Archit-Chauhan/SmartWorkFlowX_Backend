@@ -12,6 +12,7 @@ namespace SmartWorkFlowX.Application.Services
         Task<List<object>> GetAllRolesAsync();
         Task<int> CreateUserAsync(UserCreateRequest request, int actingUserId);
         Task DeleteUserAsync(int targetUserId, int actingUserId);
+        Task RestoreUserAsync(int targetUserId, int actingUserId);
     }
 }
 

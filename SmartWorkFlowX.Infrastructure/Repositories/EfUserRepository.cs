@@ -17,24 +17,27 @@ namespace SmartWorkFlowX.Infrastructure.Repositories
             => await _context.Users
                 .IgnoreQueryFilters()
                 .Include(u => u.Role)
-                .FirstOrDefaultAsync(u => u.Email == email);
+                .Where(u => u.Email == email)
+                .OrderBy(u => u.IsDeleted)  // active (false=0) before deleted (true=1)
+                .FirstOrDefaultAsync();
 
         public async Task<IEnumerable<User>> GetAllWithRolesAsync(string? search = null)
         {
-            var query = _context.Users.Include(u => u.Role).AsQueryable();
+            var query = _context.Users.IgnoreQueryFilters().Include(u => u.Role).AsQueryable();
             if (!string.IsNullOrWhiteSpace(search))
                 query = query.Where(u => u.Name.Contains(search) || u.Email.Contains(search));
-            return await query.ToListAsync();
+            return await query.OrderBy(u => u.IsDeleted).ThenBy(u => u.UserId).ToListAsync();
         }
 
         public async Task<(IEnumerable<User> users, int total)> GetPaginatedAsync(int page, int pageSize, string? search = null)
         {
-            var query = _context.Users.Include(u => u.Role).AsQueryable();
+            var query = _context.Users.IgnoreQueryFilters().Include(u => u.Role).AsQueryable();
             if (!string.IsNullOrWhiteSpace(search))
                 query = query.Where(u => u.Name.Contains(search) || u.Email.Contains(search));
             var total = await query.CountAsync();
             var items = await query
-                .OrderBy(u => u.UserId)
+                .OrderBy(u => u.IsDeleted)
+                .ThenBy(u => u.UserId)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
@@ -43,7 +46,7 @@ namespace SmartWorkFlowX.Infrastructure.Repositories
         }
 
         public async Task<bool> EmailExistsAsync(string email)
-            => await _context.Users.AnyAsync(u => u.Email == email);
+            => await _context.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == email);
 
         public async Task AddAsync(User user)
             => await _context.Users.AddAsync(user);
@@ -61,6 +64,16 @@ namespace SmartWorkFlowX.Infrastructure.Repositories
             {
                 user.IsDeleted = true;
                 user.DeletedAt = DateTime.UtcNow;
+            }
+        }
+
+        public async Task RestoreAsync(int userId)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            if (user != null)
+            {
+                user.IsDeleted = false;
+                user.DeletedAt = null;
             }
         }
 

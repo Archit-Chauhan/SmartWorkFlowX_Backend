@@ -16,6 +16,7 @@ namespace SmartWorkFlowX.Domain.Repositories
         Task AddAsync(User user);
         Task UpdateAsync(User user);
         Task SoftDeleteAsync(int userId);
+        Task RestoreAsync(int userId);
         Task SaveAsync();
     }
 }
