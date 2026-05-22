@@ -12,7 +12,7 @@ namespace SmartWorkFlowX.Infrastructure.Services
         private readonly string _apiKey;
 
         private const string Endpoint =
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
         private const string SystemPrompt =
             "You are a professional project manager. Rewrite the following rough task description into a clear, concise, and professional task description. " +
