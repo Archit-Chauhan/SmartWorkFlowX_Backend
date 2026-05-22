@@ -79,6 +79,7 @@ builder.Services.AddScoped<ITaskRepository, EfTaskRepository>();
 builder.Services.AddScoped<IAuditLogRepository, EfAuditLogRepository>();
 builder.Services.AddScoped<INotificationRepository, EfNotificationRepository>();
 builder.Services.AddScoped<IReportRepository, EfReportRepository>();
+builder.Services.AddScoped<ITaskCategoryRepository, EfTaskCategoryRepository>();
 
 // ---------------- SERVICES ----------------
 

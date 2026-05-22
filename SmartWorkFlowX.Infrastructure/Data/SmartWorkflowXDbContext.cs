@@ -16,6 +16,7 @@ namespace SmartWorkFlowX.Infrastructure.Data
         public DbSet<TaskStepHistory> TaskStepHistories { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<Notification> Notifications { get; set; }
+        public DbSet<TaskCategory> TaskCategories { get; set; }
 
         // ─── Soft-Delete Interception ────────────────────────────────────────────
         // Intercept Remove() calls on ISoftDeletable entities and convert them
@@ -109,6 +110,18 @@ namespace SmartWorkFlowX.Infrastructure.Data
                       .WithOne(h => h.Task)
                       .HasForeignKey(h => h.TaskId)
                       .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(t => t.Category)
+                      .WithMany()
+                      .HasForeignKey(t => t.CategoryId)
+                      .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // 3b. Task Categories
+            modelBuilder.Entity<TaskCategory>(entity => {
+                entity.ToTable("TaskCategories");
+                entity.HasKey(c => c.CategoryId);
+                entity.Property(c => c.ColorHex).HasDefaultValue("#6B7280");
             });
 
             // 4. Task Step History

@@ -14,11 +14,13 @@ namespace SmartWorkFlowX.Infrastructure.Repositories
             => await _context.Tasks
                 .Include(t => t.Workflow)
                     .ThenInclude(w => w!.Steps)
+                .Include(t => t.Category)
                 .FirstOrDefaultAsync(t => t.TaskId == taskId);
 
         public async Task<List<TaskItem>> GetMyTasksAsync(int userId)
             => await _context.Tasks
                 .Include(t => t.Workflow)
+                .Include(t => t.Category)
                 .Where(t => t.AssignedTo == userId && t.Status != "Completed" && t.Status != "Cancelled")
                 .OrderByDescending(t => t.CreatedAt)
                 .ToListAsync();
@@ -28,6 +30,7 @@ namespace SmartWorkFlowX.Infrastructure.Repositories
             var query = _context.Tasks
                 .Include(t => t.Workflow)
                 .Include(t => t.Assignee)
+                .Include(t => t.Category)
                 .AsQueryable();
 
             if (!string.IsNullOrEmpty(status))
@@ -65,6 +68,7 @@ namespace SmartWorkFlowX.Infrastructure.Repositories
             // Return those tasks, excluding ones currently assigned to the user (those show in Action Center)
             return await _context.Tasks
                 .Include(t => t.Workflow)
+                .Include(t => t.Category)
                 .Where(t => actedTaskIds.Contains(t.TaskId) && t.AssignedTo != userId)
                 .OrderByDescending(t => t.CreatedAt)
                 .ToListAsync();
@@ -74,6 +78,7 @@ namespace SmartWorkFlowX.Infrastructure.Repositories
         {
             var query = _context.Tasks
                 .Include(t => t.Workflow)
+                .Include(t => t.Category)
                 .Where(t => t.AssignedTo == userId && t.Status != "Completed" && t.Status != "Cancelled");
 
             var total = await query.CountAsync();
@@ -96,6 +101,7 @@ namespace SmartWorkFlowX.Infrastructure.Repositories
 
             var query = _context.Tasks
                 .Include(t => t.Workflow)
+                .Include(t => t.Category)
                 .Where(t => actedTaskIds.Contains(t.TaskId) && t.AssignedTo != userId);
 
             var total = await query.CountAsync();

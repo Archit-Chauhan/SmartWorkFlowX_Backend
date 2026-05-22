@@ -16,6 +16,7 @@ namespace SmartWorkFlowX.Application.Services
         Task<List<TaskStepHistoryResponse>> GetHistoryAsync(int taskId);
         Task<List<object>> GetMyActivityAsync(int userId);
         Task<PaginatedList<object>> GetMyActivityPaginatedAsync(int userId, int page, int pageSize);
+        Task<List<TaskCategoryResponse>> GetCategoriesAsync();
     }
 }
 
