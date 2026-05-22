@@ -1,11 +1,7 @@
-# Pipeline: Build → Test → Migrate DB → Deploy
-# Each stage gates the next — a failing test or migration blocks the deploy.
-#
-# Required GitHub secret:
-#   AZURE_SQL_CONNECTION_STRING  — full ADO.NET connection string for the prod Azure SQL database
-#   (The three AZUREAPPSERVICE_* secrets are already configured by Azure App Service)
+# Pipeline: Build → Test → Deploy
+# Migrations run automatically on startup via MigrateAsync() in Program.cs.
 
-name: Build, Test, Migrate and Deploy
+name: Build, Test and Deploy
 
 on:
   push:
@@ -65,48 +61,11 @@ jobs:
           name: dotnet-app
           path: ${{ env.DOTNET_ROOT }}/myapp
 
-  # ── 2. MIGRATE DATABASE ──────────────────────────────────────────────────────
-  # Runs AFTER build succeeds, BEFORE the new code lands on the server.
-  # Uses DesignTimeDbContextFactory so only the Infrastructure project is needed —
-  # no full ASP.NET Core host startup required.
-  migrate:
-    name: Migrate Database
-    runs-on: windows-latest
-    needs: build-and-test
-    permissions:
-      contents: read
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up .NET Core
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.x'
-          include-prerelease: true
-
-      - name: Restore Infrastructure project
-        run: dotnet restore SmartWorkFlowX.Infrastructure/SmartWorkFlowX.Infrastructure.csproj
-
-      - name: Install dotnet-ef CLI tool
-        run: dotnet tool install --global dotnet-ef
-
-      - name: Apply pending EF Core migrations
-        run: >
-          dotnet ef database update
-          --project SmartWorkFlowX.Infrastructure/SmartWorkFlowX.Infrastructure.csproj
-          --verbose
-        env:
-          # DesignTimeDbContextFactory reads this env var directly.
-          # Map: ConnectionStrings__DefaultConnection → GetConnectionString("DefaultConnection")
-          ConnectionStrings__DefaultConnection: ${{ secrets.AZURE_SQL_CONNECTION_STRING }}
-
-  # ── 3. DEPLOY ────────────────────────────────────────────────────────────────
-  # Only runs if migration succeeded — new code always lands on a migrated schema.
+  # ── 2. DEPLOY ────────────────────────────────────────────────────────────────
   deploy:
     name: Deploy to Azure
     runs-on: windows-latest
-    needs: migrate
+    needs: build-and-test
     permissions:
       id-token: write
       contents: read
