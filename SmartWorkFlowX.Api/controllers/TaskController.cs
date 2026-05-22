@@ -86,7 +86,7 @@ namespace SmartWorkFlowX.Api.Controllers
             if (string.IsNullOrWhiteSpace(request.RawText))
                 return BadRequest("Description text is required.");
 
-            var formalized = await _aiService.FormalizeDescriptionAsync(request.RawText);
+            var formalized = await _aiService.FormalizeDescriptionAsync(request.RawText, request.Context);
             return Ok(new { formalizedText = formalized });
         }
 
