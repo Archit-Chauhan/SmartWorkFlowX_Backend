@@ -119,7 +119,21 @@ namespace SmartWorkFlowX.Api.Controllers
         [HttpGet("google-login")]
         public IActionResult GoogleLogin()
         {
-            var properties = new AuthenticationProperties { RedirectUri = Url.Action("GoogleCallback") };
+            // Capture the frontend origin from the Referer header so the callback
+            // can redirect back to the correct host (works for both local and prod).
+            var frontendUrl = _configuration["FrontendUrl"] ?? "http://localhost:5173";
+            var referer = Request.Headers["Referer"].ToString();
+            if (!string.IsNullOrEmpty(referer) && Uri.TryCreate(referer, UriKind.Absolute, out var refUri))
+            {
+                var port = refUri.IsDefaultPort ? "" : $":{refUri.Port}";
+                frontendUrl = $"{refUri.Scheme}://{refUri.Host}{port}";
+            }
+
+            var properties = new AuthenticationProperties
+            {
+                RedirectUri = Url.Action("GoogleCallback"),
+                Items = { ["frontend_url"] = frontendUrl }
+            };
             return Challenge(properties, GoogleDefaults.AuthenticationScheme);
         }
 
@@ -127,28 +141,31 @@ namespace SmartWorkFlowX.Api.Controllers
         public async Task<IActionResult> GoogleCallback()
         {
             var authenticateResult = await HttpContext.AuthenticateAsync("ExternalCookie");
-            if (!authenticateResult.Succeeded)
-                return BadRequest("External authentication failed.");
 
-            var email = authenticateResult.Principal.FindFirstValue(ClaimTypes.Email);
-            var name = authenticateResult.Principal.FindFirstValue(ClaimTypes.Name);
+            // Recover the frontend URL stored in OAuth state; fall back to config.
+            var frontendUrl = authenticateResult.Properties?.Items.TryGetValue("frontend_url", out var storedUrl) == true && !string.IsNullOrEmpty(storedUrl)
+                ? storedUrl
+                : _configuration["FrontendUrl"] ?? "http://localhost:5173";
+
+            if (!authenticateResult.Succeeded)
+                return Redirect($"{frontendUrl}/oauth-callback?error=auth_failed");
+
+            var email = authenticateResult.Principal?.FindFirstValue(ClaimTypes.Email);
 
             if (string.IsNullOrEmpty(email))
-                return BadRequest("Email claim is missing from external provider.");
+                return Redirect($"{frontendUrl}/oauth-callback?error=auth_failed");
 
             var user = await _userRepo.GetByEmailWithRoleAsync(email);
 
             if (user != null && user.IsDeleted)
-                return Unauthorized("Your account has been deactivated.");
+                return Redirect($"{frontendUrl}/oauth-callback?error=deactivated");
 
             if (user == null)
-            {
-                return Unauthorized("Your account is not registered in the system. Please contact an administrator.");
-            }
+                return Redirect($"{frontendUrl}/oauth-callback?error=not_registered");
 
             await _auditRepo.AddAsync(new AuditLog
             {
-                UserId = user!.UserId,
+                UserId = user.UserId,
                 Action = $"User '{user.Email}' logged in via Google.",
                 EntityName = "Users",
                 Timestamp = DateTime.UtcNow
@@ -156,9 +173,6 @@ namespace SmartWorkFlowX.Api.Controllers
             await _auditRepo.SaveAsync();
 
             var token = _authService.GenerateToken(user, user.Role!.RoleName);
-
-            // Determine frontend URL (in production this should be read from config)
-            var frontendUrl = _configuration["FrontendUrl"] ?? "http://localhost:5173";
             return Redirect($"{frontendUrl}/oauth-callback?token={token}&email={Uri.EscapeDataString(user.Email)}&role={Uri.EscapeDataString(user.Role.RoleName)}");
         }
     }
