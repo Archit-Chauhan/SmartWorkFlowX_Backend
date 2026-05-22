@@ -1,6 +1,6 @@
 namespace SmartWorkFlowX.Application.Services
 {
-    public interface IGeminiService
+    public interface IAiService
     {
         Task<string> FormalizeDescriptionAsync(string rawText);
     }

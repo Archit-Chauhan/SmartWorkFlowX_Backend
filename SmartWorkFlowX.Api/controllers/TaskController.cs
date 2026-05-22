@@ -12,12 +12,12 @@ namespace SmartWorkFlowX.Api.Controllers
     public class TaskController : ControllerBase
     {
         private readonly ITaskService _taskService;
-        private readonly IGeminiService _geminiService;
+        private readonly IAiService _aiService;
 
-        public TaskController(ITaskService taskService, IGeminiService geminiService)
+        public TaskController(ITaskService taskService, IAiService aiService)
         {
             _taskService = taskService;
-            _geminiService = geminiService;
+            _aiService = aiService;
         }
 
         // GET: api/Task/my-tasks
@@ -86,7 +86,7 @@ namespace SmartWorkFlowX.Api.Controllers
             if (string.IsNullOrWhiteSpace(request.RawText))
                 return BadRequest("Description text is required.");
 
-            var formalized = await _geminiService.FormalizeDescriptionAsync(request.RawText);
+            var formalized = await _aiService.FormalizeDescriptionAsync(request.RawText);
             return Ok(new { formalizedText = formalized });
         }
 

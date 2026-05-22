@@ -6,54 +6,51 @@ using SmartWorkFlowX.Application.Services;
 
 namespace SmartWorkFlowX.Infrastructure.Services
 {
-    public class GeminiService : IGeminiService
+    public class GroqService : IAiService
     {
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly string _apiKey;
 
-        private const string Endpoint =
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+        private const string Endpoint = "https://api.groq.com/openai/v1/chat/completions";
+        private const string Model = "llama-3.1-8b-instant";
 
         private const string SystemPrompt =
-            "You are a professional project manager. Rewrite the following rough task description into a clear, concise, and professional task description. " +
+            "You are a professional project manager. Rewrite the user's rough task description into a clear, concise, and professional task description. " +
             "Keep it factual and action-oriented. Use plain text only — no markdown, no bullet points, no headers. Return only the rewritten description, nothing else.";
 
-        public GeminiService(IHttpClientFactory httpClientFactory, IConfiguration configuration)
+        public GroqService(IHttpClientFactory httpClientFactory, IConfiguration configuration)
         {
             _httpClientFactory = httpClientFactory;
-            _apiKey = configuration["Gemini:ApiKey"]
-                ?? throw new InvalidOperationException("Gemini:ApiKey is not configured.");
+            _apiKey = configuration["Groq:ApiKey"]
+                ?? throw new InvalidOperationException("Groq:ApiKey is not configured.");
         }
 
         public async Task<string> FormalizeDescriptionAsync(string rawText)
         {
             var client = _httpClientFactory.CreateClient();
+            client.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _apiKey);
 
             var body = new
             {
-                contents = new[]
+                model = Model,
+                messages = new[]
                 {
-                    new
-                    {
-                        parts = new[]
-                        {
-                            new { text = $"{SystemPrompt}\n\nRaw description: {rawText}" }
-                        }
-                    }
+                    new { role = "system", content = SystemPrompt },
+                    new { role = "user", content = rawText }
                 }
             };
 
-            var response = await client.PostAsJsonAsync($"{Endpoint}?key={_apiKey}", body);
+            var response = await client.PostAsJsonAsync(Endpoint, body);
             response.EnsureSuccessStatusCode();
 
             var json = await response.Content.ReadAsStringAsync();
             using var doc = JsonDocument.Parse(json);
 
             return doc.RootElement
-                .GetProperty("candidates")[0]
+                .GetProperty("choices")[0]
+                .GetProperty("message")
                 .GetProperty("content")
-                .GetProperty("parts")[0]
-                .GetProperty("text")
                 .GetString() ?? rawText;
         }
     }

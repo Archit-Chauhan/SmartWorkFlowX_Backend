@@ -87,7 +87,7 @@ builder.Services.AddScoped<IAuthService, SmartWorkFlowX.Infrastructure.services.
 
 builder.Services.AddScoped<IWorkflowService, WorkflowService>();
 builder.Services.AddScoped<ITaskService, TaskService>();
-builder.Services.AddScoped<IGeminiService, SmartWorkFlowX.Infrastructure.Services.GeminiService>();
+builder.Services.AddScoped<IAiService, SmartWorkFlowX.Infrastructure.Services.GroqService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<INotificationQueryService, NotificationQueryService>();
