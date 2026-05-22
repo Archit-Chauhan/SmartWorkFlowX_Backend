@@ -150,7 +150,7 @@ namespace SmartWorkFlowX.Tests.Services
                 }
             );
 
-            await _workflowService.UpdateAsync(1, request, createdByUserId: 1);
+            await _workflowService.UpdateAsync(1, request, 1);
 
             Assert.Equal("Active", workflow.Status);
             _workflowRepoMock.Verify(r => r.SaveAsync(), Times.Once);
@@ -174,7 +174,7 @@ namespace SmartWorkFlowX.Tests.Services
                 }
             );
 
-            await _workflowService.UpdateAsync(1, request, createdByUserId: 1);
+            await _workflowService.UpdateAsync(1, request, 1);
 
             Assert.Equal("Inactive", workflow.Status);
             _workflowRepoMock.Verify(r => r.SaveAsync(), Times.Once);
@@ -187,7 +187,7 @@ namespace SmartWorkFlowX.Tests.Services
             _workflowRepoMock.Setup(r => r.GetByIdWithStepsAsync(1)).ReturnsAsync(workflow);
             _workflowRepoMock.Setup(r => r.HasActiveTasksAsync(1)).ReturnsAsync(false);
 
-            await _workflowService.DeactivateAsync(1, createdByUserId: 1);
+            await _workflowService.DeactivateAsync(1, 1);
 
             Assert.Equal("Inactive", workflow.Status);
             _workflowRepoMock.Verify(r => r.SaveAsync(), Times.Once);
@@ -213,7 +213,7 @@ namespace SmartWorkFlowX.Tests.Services
             var source = BuildWorkflow(1, "Active");
             _workflowRepoMock.Setup(r => r.GetByIdWithStepsAsync(1)).ReturnsAsync(source);
 
-            await _workflowService.CloneAsync(1, createdByUserId: 1);
+            await _workflowService.CloneAsync(1, 1);
 
             _workflowRepoMock.Verify(r => r.AddAsync(It.Is<Workflow>(w =>
                 w.Title == "Workflow 1 (Copy)" &&
