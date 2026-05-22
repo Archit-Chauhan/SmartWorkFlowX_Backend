@@ -9,7 +9,7 @@ namespace SmartWorkFlowX.Application.Services
     {
         Task<List<object>> GetMyTasksAsync(int userId);
         Task<PaginatedList<object>> GetMyTasksPaginatedAsync(int userId, int page, int pageSize);
-        Task<List<object>> GetAllFilteredAsync(string? status, string? priority, int? assignedTo);
+        Task<List<object>> GetAllFilteredAsync(string? status, string? priority, int? assignedTo, int? categoryId = null);
         Task<int> AssignTaskAsync(TaskCreateRequest request, int actingUserId);
         Task<string> ApproveTaskAsync(int taskId, int actingUserId, string? comment);
         Task<string> RejectTaskAsync(int taskId, int actingUserId, TaskRejectRequest request);

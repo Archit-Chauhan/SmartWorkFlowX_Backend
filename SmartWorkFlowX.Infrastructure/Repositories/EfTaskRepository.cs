@@ -25,7 +25,7 @@ namespace SmartWorkFlowX.Infrastructure.Repositories
                 .OrderByDescending(t => t.CreatedAt)
                 .ToListAsync();
 
-        public async Task<List<TaskItem>> GetAllFilteredAsync(string? status, string? priority, int? assignedTo)
+        public async Task<List<TaskItem>> GetAllFilteredAsync(string? status, string? priority, int? assignedTo, int? categoryId)
         {
             var query = _context.Tasks
                 .Include(t => t.Workflow)
@@ -41,6 +41,9 @@ namespace SmartWorkFlowX.Infrastructure.Repositories
 
             if (assignedTo.HasValue)
                 query = query.Where(t => t.AssignedTo == assignedTo);
+
+            if (categoryId.HasValue)
+                query = query.Where(t => t.CategoryId == categoryId);
 
             return await query.OrderByDescending(t => t.CreatedAt).ToListAsync();
         }

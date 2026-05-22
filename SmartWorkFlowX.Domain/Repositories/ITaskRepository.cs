@@ -11,7 +11,7 @@ namespace SmartWorkFlowX.Domain.Repositories
         Task<TaskItem?> GetByIdWithWorkflowAsync(int taskId);
         Task<List<TaskItem>> GetMyTasksAsync(int userId);
         Task<(IEnumerable<TaskItem> tasks, int total)> GetMyTasksPaginatedAsync(int userId, int page, int pageSize);
-        Task<List<TaskItem>> GetAllFilteredAsync(string? status, string? priority, int? assignedTo);
+        Task<List<TaskItem>> GetAllFilteredAsync(string? status, string? priority, int? assignedTo, int? categoryId);
         Task<List<TaskStepHistory>> GetHistoryAsync(int taskId);
         Task<List<TaskItem>> GetMyActivityAsync(int userId);
         Task<(IEnumerable<TaskItem> tasks, int total)> GetMyActivityPaginatedAsync(int userId, int page, int pageSize);

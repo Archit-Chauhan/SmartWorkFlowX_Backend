@@ -49,9 +49,9 @@ namespace SmartWorkFlowX.Application.Services
             }).ToList();
         }
 
-        public async Task<List<object>> GetAllFilteredAsync(string? status, string? priority, int? assignedTo)
+        public async Task<List<object>> GetAllFilteredAsync(string? status, string? priority, int? assignedTo, int? categoryId = null)
         {
-            var tasks = await _taskRepo.GetAllFilteredAsync(status, priority, assignedTo);
+            var tasks = await _taskRepo.GetAllFilteredAsync(status, priority, assignedTo, categoryId);
             return tasks.Select(t => (object)new
             {
                 t.TaskId,
