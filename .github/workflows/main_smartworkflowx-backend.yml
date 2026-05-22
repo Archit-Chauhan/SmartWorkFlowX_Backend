@@ -1,7 +1,11 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
+# Pipeline: Build → Test → Migrate DB → Deploy
+# Each stage gates the next — a failing test or migration blocks the deploy.
+#
+# Required GitHub secret:
+#   AZURE_SQL_CONNECTION_STRING  — full ADO.NET connection string for the prod Azure SQL database
+#   (The three AZUREAPPSERVICE_* secrets are already configured by Azure App Service)
 
-name: Build and deploy ASP.Net Core app to Azure Web App - SmartWorkFlowX-Backend
+name: Build, Test, Migrate and Deploy
 
 on:
   push:
@@ -10,10 +14,13 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+
+  # ── 1. BUILD & TEST ──────────────────────────────────────────────────────────
+  build-and-test:
+    name: Build and Test
     runs-on: windows-latest
     permissions:
-      contents: read #This is required for actions/checkout
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
@@ -24,31 +31,92 @@ jobs:
           dotnet-version: '10.x'
           include-prerelease: true
 
-      - name: Build with dotnet
-        run: dotnet build SmartWorkFlowX.Api/SmartWorkFlowX.Api.csproj --configuration Release
+      - name: Restore dependencies
+        run: dotnet restore SmartWorkFlowX.slnx
 
-      - name: dotnet publish
-        run: dotnet publish SmartWorkFlowX.Api/SmartWorkFlowX.Api.csproj -c Release -o "${{env.DOTNET_ROOT}}/myapp"
+      - name: Build solution
+        run: dotnet build SmartWorkFlowX.slnx --configuration Release --no-restore
 
-      - name: Upload artifact for deployment job
+      - name: Run unit tests
+        run: >
+          dotnet test SmartWorkFlowX.Tests/SmartWorkFlowX.Tests.csproj
+          --configuration Release
+          --no-build
+          --verbosity normal
+          --logger "trx;LogFileName=test-results.trx"
+
+      - name: Publish test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: "**/*.trx"
+
+      - name: Publish API
+        run: >
+          dotnet publish SmartWorkFlowX.Api/SmartWorkFlowX.Api.csproj
+          --configuration Release
+          --no-build
+          --output "${{ env.DOTNET_ROOT }}/myapp"
+
+      - name: Upload deployment artifact
         uses: actions/upload-artifact@v4
         with:
-          name: .net-app
-          path: ${{env.DOTNET_ROOT}}/myapp
+          name: dotnet-app
+          path: ${{ env.DOTNET_ROOT }}/myapp
 
-  deploy:
+  # ── 2. MIGRATE DATABASE ──────────────────────────────────────────────────────
+  # Runs AFTER build succeeds, BEFORE the new code lands on the server.
+  # Uses DesignTimeDbContextFactory so only the Infrastructure project is needed —
+  # no full ASP.NET Core host startup required.
+  migrate:
+    name: Migrate Database
     runs-on: windows-latest
-    needs: build
+    needs: build-and-test
     permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
+      contents: read
 
     steps:
-      - name: Download artifact from build job
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET Core
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+          include-prerelease: true
+
+      - name: Restore Infrastructure project
+        run: dotnet restore SmartWorkFlowX.Infrastructure/SmartWorkFlowX.Infrastructure.csproj
+
+      - name: Install dotnet-ef CLI tool
+        run: dotnet tool install --global dotnet-ef
+
+      - name: Apply pending EF Core migrations
+        run: >
+          dotnet ef database update
+          --project SmartWorkFlowX.Infrastructure/SmartWorkFlowX.Infrastructure.csproj
+          --verbose
+        env:
+          # DesignTimeDbContextFactory reads this env var directly.
+          # Map: ConnectionStrings__DefaultConnection → GetConnectionString("DefaultConnection")
+          ConnectionStrings__DefaultConnection: ${{ secrets.AZURE_SQL_CONNECTION_STRING }}
+
+  # ── 3. DEPLOY ────────────────────────────────────────────────────────────────
+  # Only runs if migration succeeded — new code always lands on a migrated schema.
+  deploy:
+    name: Deploy to Azure
+    runs-on: windows-latest
+    needs: migrate
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Download deployment artifact
         uses: actions/download-artifact@v4
         with:
-          name: .net-app
-      
+          name: dotnet-app
+
       - name: Login to Azure
         uses: azure/login@v2
         with:
@@ -57,9 +125,8 @@ jobs:
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_716AA95EC9D5435C92212B39681974B6 }}
 
       - name: Deploy to Azure Web App
-        id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'SmartWorkFlowX-Backend'
-          slot-name: 'Production'
+          app-name: SmartWorkFlowX-Backend
+          slot-name: Production
           package: .
