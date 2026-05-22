@@ -71,6 +71,11 @@ namespace SmartWorkFlowX.Api.Controllers
         public async Task<IActionResult> GetTaskHistory(int id)
             => Ok(await _taskService.GetHistoryAsync(id));
 
+        // GET: api/Task/categories
+        [HttpGet("categories")]
+        public async Task<IActionResult> GetCategories()
+            => Ok(await _taskService.GetCategoriesAsync());
+
         private int GetUserId()
             => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
     }

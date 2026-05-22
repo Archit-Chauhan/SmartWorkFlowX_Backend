@@ -17,6 +17,7 @@ namespace SmartWorkFlowX.Domain.Entities
         public DateTime? DueDate { get; set; }
         public DateTime? CompletedAt { get; set; }        // Set when status transitions to Completed
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public int? CategoryId { get; set; }
 
         // Soft Delete
         public bool IsDeleted { get; set; } = false;
@@ -25,6 +26,7 @@ namespace SmartWorkFlowX.Domain.Entities
         // Navigation
         public Workflow? Workflow { get; set; }
         public User? Assignee { get; set; }
+        public TaskCategory? Category { get; set; }
         public ICollection<TaskStepHistory> StepHistories { get; set; } = new List<TaskStepHistory>();
     }
 }

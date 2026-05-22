@@ -12,19 +12,22 @@ namespace SmartWorkFlowX.Application.Services
         private readonly IAuditLogRepository _auditRepo;
         private readonly INotificationService _notificationService;
         private readonly IMessagePublisher _messagePublisher;
+        private readonly ITaskCategoryRepository _categoryRepo;
 
         public TaskService(
             ITaskRepository taskRepo,
             IWorkflowRepository workflowRepo,
             IAuditLogRepository auditRepo,
             INotificationService notificationService,
-            IMessagePublisher messagePublisher)
+            IMessagePublisher messagePublisher,
+            ITaskCategoryRepository categoryRepo)
         {
             _taskRepo = taskRepo;
             _workflowRepo = workflowRepo;
             _auditRepo = auditRepo;
             _notificationService = notificationService;
             _messagePublisher = messagePublisher;
+            _categoryRepo = categoryRepo;
         }
 
         public async Task<List<object>> GetMyTasksAsync(int userId)
@@ -40,7 +43,9 @@ namespace SmartWorkFlowX.Application.Services
                 t.CurrentStepOrder,
                 t.DueDate,
                 t.CreatedAt,
-                WorkflowTitle = t.Workflow?.Title
+                WorkflowTitle = t.Workflow?.Title,
+                CategoryName = t.Category?.Name,
+                CategoryColor = t.Category?.ColorHex
             }).ToList();
         }
 
@@ -60,7 +65,9 @@ namespace SmartWorkFlowX.Application.Services
                 t.RejectedReason,
                 t.CreatedAt,
                 WorkflowTitle = t.Workflow?.Title,
-                AssigneeName = t.Assignee?.Name ?? "Unassigned"
+                AssigneeName = t.Assignee?.Name ?? "Unassigned",
+                CategoryName = t.Category?.Name,
+                CategoryColor = t.Category?.ColorHex
             }).ToList();
         }
 
@@ -88,6 +95,7 @@ namespace SmartWorkFlowX.Application.Services
                 Status = "In Progress",
                 CurrentStepOrder = 0, // Start at Step 0 (employee work stage)
                 DueDate = request.DueDate,
+                CategoryId = request.CategoryId,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -297,8 +305,16 @@ namespace SmartWorkFlowX.Application.Services
                 t.DueDate,
                 t.CompletedAt,
                 t.CreatedAt,
-                WorkflowTitle = t.Workflow?.Title
+                WorkflowTitle = t.Workflow?.Title,
+                CategoryName = t.Category?.Name,
+                CategoryColor = t.Category?.ColorHex
             }).ToList();
+        }
+
+        public async Task<List<TaskCategoryResponse>> GetCategoriesAsync()
+        {
+            var categories = await _categoryRepo.GetAllActiveAsync();
+            return categories.Select(c => new TaskCategoryResponse(c.CategoryId, c.Name, c.ColorHex)).ToList();
         }
 
         public async Task<PaginatedList<object>> GetMyTasksPaginatedAsync(int userId, int page, int pageSize)
@@ -314,7 +330,9 @@ namespace SmartWorkFlowX.Application.Services
                 t.CurrentStepOrder,
                 t.DueDate,
                 t.CreatedAt,
-                WorkflowTitle = t.Workflow?.Title
+                WorkflowTitle = t.Workflow?.Title,
+                CategoryName = t.Category?.Name,
+                CategoryColor = t.Category?.ColorHex
             }).ToList();
 
             return new PaginatedList<object>
@@ -340,7 +358,9 @@ namespace SmartWorkFlowX.Application.Services
                 t.DueDate,
                 t.CompletedAt,
                 t.CreatedAt,
-                WorkflowTitle = t.Workflow?.Title
+                WorkflowTitle = t.Workflow?.Title,
+                CategoryName = t.Category?.Name,
+                CategoryColor = t.Category?.ColorHex
             }).ToList();
 
             return new PaginatedList<object>

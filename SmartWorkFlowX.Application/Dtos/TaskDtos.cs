@@ -10,8 +10,11 @@ namespace SmartWorkFlowX.Application.Dtos
         [Required] int WorkflowId,
         [Required] int AssignedTo,
         [Required] string Priority,     // Low | Medium | High
-        DateTime? DueDate
+        DateTime? DueDate,
+        int? CategoryId
     );
+
+    public record TaskCategoryResponse(int CategoryId, string Name, string ColorHex);
 
     public record TaskStatusUpdateRequest([Required] string Status);
 

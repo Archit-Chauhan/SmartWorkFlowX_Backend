@@ -23,6 +23,21 @@ namespace SmartWorkFlowX.Infrastructure.Data
                 await context.SaveChangesAsync();
             }
 
+            // Seed Task Categories
+            if (!await context.TaskCategories.AnyAsync())
+            {
+                context.TaskCategories.AddRange(
+                    new TaskCategory { Name = "Bug Fix",       ColorHex = "#EF4444" },
+                    new TaskCategory { Name = "Feature",       ColorHex = "#3B82F6" },
+                    new TaskCategory { Name = "Meeting",       ColorHex = "#F59E0B" },
+                    new TaskCategory { Name = "Code Review",   ColorHex = "#8B5CF6" },
+                    new TaskCategory { Name = "Documentation", ColorHex = "#6B7280" },
+                    new TaskCategory { Name = "Testing",       ColorHex = "#F97316" },
+                    new TaskCategory { Name = "DevOps",        ColorHex = "#10B981" }
+                );
+                await context.SaveChangesAsync();
+            }
+
             // Seed initial Admin user
             if (!await context.Users.AnyAsync(u => u.Email == "admin@smartworkflowx.com"))
             {
