@@ -12,10 +12,12 @@ namespace SmartWorkFlowX.Api.Controllers
     public class TaskController : ControllerBase
     {
         private readonly ITaskService _taskService;
+        private readonly IGeminiService _geminiService;
 
-        public TaskController(ITaskService taskService)
+        public TaskController(ITaskService taskService, IGeminiService geminiService)
         {
             _taskService = taskService;
+            _geminiService = geminiService;
         }
 
         // GET: api/Task/my-tasks
@@ -75,6 +77,18 @@ namespace SmartWorkFlowX.Api.Controllers
         [HttpGet("categories")]
         public async Task<IActionResult> GetCategories()
             => Ok(await _taskService.GetCategoriesAsync());
+
+        // POST: api/Task/formalize-description
+        [HttpPost("formalize-description")]
+        [Authorize(Roles = "Manager,Admin")]
+        public async Task<IActionResult> FormalizeDescription([FromBody] FormalizeDescriptionRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.RawText))
+                return BadRequest("Description text is required.");
+
+            var formalized = await _geminiService.FormalizeDescriptionAsync(request.RawText);
+            return Ok(new { formalizedText = formalized });
+        }
 
         private int GetUserId()
             => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
