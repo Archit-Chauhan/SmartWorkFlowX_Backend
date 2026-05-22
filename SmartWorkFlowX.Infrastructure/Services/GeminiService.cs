@@ -1,5 +1,7 @@
+using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.Extensions.Configuration;
 using SmartWorkFlowX.Application.Services;
 
 namespace SmartWorkFlowX.Infrastructure.Services
