@@ -23,18 +23,17 @@ namespace SmartWorkFlowX.Tests.Services
         [Fact(DisplayName = "TC-R01: Get analytics — all authenticated users receive task counts and completion rate")]
         public async Task GetAnalyticsAsync_ShouldReturnSystemAnalyticsDto()
         {
-            var analytics = new SystemAnalyticsDto
-            {
-                TotalUsers = 10,
-                TotalWorkflows = 5,
-                ActiveWorkflows = 3,
-                PendingTasks = 2,
-                InProgressTasks = 4,
-                CompletedTasks = 6,
-                OverdueTasks = 1,
-                AvgCompletionTimeHours = 24.5,
-                TasksPerUser = new List<TasksPerUserDto>()
-            };
+            var analytics = new SystemAnalyticsDto(
+                TotalUsers: 10,
+                TotalWorkflows: 5,
+                ActiveWorkflows: 3,
+                PendingTasks: 2,
+                InProgressTasks: 4,
+                CompletedTasks: 6,
+                OverdueTasks: 1,
+                AvgCompletionTimeHours: 24.5,
+                TasksPerUser: new List<TasksPerUserDto>()
+            );
             _reportRepoMock.Setup(r => r.GetAnalyticsAsync()).ReturnsAsync(analytics);
 
             var result = await _reportService.GetAnalyticsAsync();

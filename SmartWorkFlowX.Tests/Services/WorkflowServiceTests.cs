@@ -3,6 +3,7 @@ using SmartWorkFlowX.Application.Dtos;
 using SmartWorkFlowX.Application.Services;
 using SmartWorkFlowX.Domain.Entities;
 using SmartWorkFlowX.Domain.Repositories;
+using System.Linq;
 
 namespace SmartWorkFlowX.Tests.Services
 {
@@ -65,7 +66,7 @@ namespace SmartWorkFlowX.Tests.Services
                 }
             );
 
-            await _workflowService.CreateAsync(request, actingUserId: 1);
+            await _workflowService.CreateAsync(request, createdByUserId: 1);
 
             _workflowRepoMock.Verify(r => r.AddAsync(It.Is<Workflow>(w =>
                 w.Title == "Document Review" &&
@@ -88,7 +89,7 @@ namespace SmartWorkFlowX.Tests.Services
             // The service itself does not throw for empty steps.
             var request = new WorkflowCreateRequest("Empty Workflow", "No steps", new List<WorkflowStepCreateDto>());
 
-            await _workflowService.CreateAsync(request, actingUserId: 1);
+            await _workflowService.CreateAsync(request, createdByUserId: 1);
 
             _workflowRepoMock.Verify(r => r.AddAsync(It.Is<Workflow>(w => w.Steps.Count == 0)), Times.Once);
         }
@@ -105,7 +106,7 @@ namespace SmartWorkFlowX.Tests.Services
             Assert.Equal(2, result.Total);
             Assert.Equal(1, result.Page);
             Assert.Equal(5, result.PageSize);
-            Assert.Equal(2, result.Data.Count);
+            Assert.Equal(2, result.Data.Count());
             Assert.All(result.Data, w => Assert.Equal(1, w.StepCount));
         }
 
@@ -149,7 +150,7 @@ namespace SmartWorkFlowX.Tests.Services
                 }
             );
 
-            await _workflowService.UpdateAsync(1, request, actingUserId: 1);
+            await _workflowService.UpdateAsync(1, request, createdByUserId: 1);
 
             Assert.Equal("Active", workflow.Status);
             _workflowRepoMock.Verify(r => r.SaveAsync(), Times.Once);
@@ -173,7 +174,7 @@ namespace SmartWorkFlowX.Tests.Services
                 }
             );
 
-            await _workflowService.UpdateAsync(1, request, actingUserId: 1);
+            await _workflowService.UpdateAsync(1, request, createdByUserId: 1);
 
             Assert.Equal("Inactive", workflow.Status);
             _workflowRepoMock.Verify(r => r.SaveAsync(), Times.Once);
@@ -186,7 +187,7 @@ namespace SmartWorkFlowX.Tests.Services
             _workflowRepoMock.Setup(r => r.GetByIdWithStepsAsync(1)).ReturnsAsync(workflow);
             _workflowRepoMock.Setup(r => r.HasActiveTasksAsync(1)).ReturnsAsync(false);
 
-            await _workflowService.DeactivateAsync(1, actingUserId: 1);
+            await _workflowService.DeactivateAsync(1, createdByUserId: 1);
 
             Assert.Equal("Inactive", workflow.Status);
             _workflowRepoMock.Verify(r => r.SaveAsync(), Times.Once);
@@ -212,7 +213,7 @@ namespace SmartWorkFlowX.Tests.Services
             var source = BuildWorkflow(1, "Active");
             _workflowRepoMock.Setup(r => r.GetByIdWithStepsAsync(1)).ReturnsAsync(source);
 
-            await _workflowService.CloneAsync(1, actingUserId: 1);
+            await _workflowService.CloneAsync(1, createdByUserId: 1);
 
             _workflowRepoMock.Verify(r => r.AddAsync(It.Is<Workflow>(w =>
                 w.Title == "Workflow 1 (Copy)" &&
@@ -245,10 +246,10 @@ namespace SmartWorkFlowX.Tests.Services
                 }
             );
 
-            await _workflowService.CreateAsync(request, actingUserId: 1);
+            await _workflowService.CreateAsync(request, createdByUserId: 1);
 
             _workflowRepoMock.Verify(r => r.AddAsync(It.Is<Workflow>(w =>
-                w.Steps[0].OnRejectAction == "GoBack"
+                w.Steps.First().OnRejectAction == "GoBack"
             )), Times.Once);
         }
 
@@ -263,10 +264,10 @@ namespace SmartWorkFlowX.Tests.Services
                 }
             );
 
-            await _workflowService.CreateAsync(request, actingUserId: 1);
+            await _workflowService.CreateAsync(request, createdByUserId: 1);
 
             _workflowRepoMock.Verify(r => r.AddAsync(It.Is<Workflow>(w =>
-                w.Steps[0].OnRejectAction == "Cancel"
+                w.Steps.First().OnRejectAction == "Cancel"
             )), Times.Once);
         }
     }
