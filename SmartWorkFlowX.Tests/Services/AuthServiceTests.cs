@@ -142,7 +142,7 @@ namespace SmartWorkFlowX.Tests.Services
             _emailServiceMock.Verify(e => e.SendEmailAsync(
                 "alice@test.com",
                 It.Is<string>(s => s.Contains("Reset")),
-                It.Is<string>(b => b.Contains("alice@test.com"))
+                It.Is<string>(b => b.Contains("alice") && b.Contains("reset-password"))
             ), Times.Once);
         }
 
