@@ -1,23 +1,20 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
-using Microsoft.Extensions.Configuration;
 
 namespace SmartWorkFlowX.Infrastructure.Data
 {
     // Used exclusively by `dotnet ef` CLI tooling (migrations, database update).
-    // Reads the connection string from the environment so CI can inject it
-    // without starting the full ASP.NET Core host.
+    // Reads the connection string directly from the environment variable so CI
+    // can inject it without starting the full ASP.NET Core host.
     public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<SmartWorkflowXDbContext>
     {
         public SmartWorkflowXDbContext CreateDbContext(string[] args)
         {
-            var config = new ConfigurationBuilder()
-                .AddEnvironmentVariables()
-                .Build();
-
-            var connectionString = config.GetConnectionString("DefaultConnection")
+            // ASP.NET Core maps  ConnectionStrings__DefaultConnection  →  GetConnectionString("DefaultConnection")
+            var connectionString =
+                Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
                 ?? throw new InvalidOperationException(
-                    "Set the ConnectionStrings__DefaultConnection environment variable before running EF tools.");
+                    "Set ConnectionStrings__DefaultConnection before running EF tools.");
 
             var options = new DbContextOptionsBuilder<SmartWorkflowXDbContext>()
                 .UseSqlServer(connectionString, sql =>
