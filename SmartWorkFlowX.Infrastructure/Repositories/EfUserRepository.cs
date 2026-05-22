@@ -19,19 +19,26 @@ namespace SmartWorkFlowX.Infrastructure.Repositories
                 .Include(u => u.Role)
                 .FirstOrDefaultAsync(u => u.Email == email);
 
-        public async Task<IEnumerable<User>> GetAllWithRolesAsync()
-            => await _context.Users.Include(u => u.Role).ToListAsync();
-
-        public async Task<(IEnumerable<User> users, int total)> GetPaginatedAsync(int page, int pageSize)
+        public async Task<IEnumerable<User>> GetAllWithRolesAsync(string? search = null)
         {
-            var query = _context.Users.Include(u => u.Role);
+            var query = _context.Users.Include(u => u.Role).AsQueryable();
+            if (!string.IsNullOrWhiteSpace(search))
+                query = query.Where(u => u.Name.Contains(search) || u.Email.Contains(search));
+            return await query.ToListAsync();
+        }
+
+        public async Task<(IEnumerable<User> users, int total)> GetPaginatedAsync(int page, int pageSize, string? search = null)
+        {
+            var query = _context.Users.Include(u => u.Role).AsQueryable();
+            if (!string.IsNullOrWhiteSpace(search))
+                query = query.Where(u => u.Name.Contains(search) || u.Email.Contains(search));
             var total = await query.CountAsync();
             var items = await query
                 .OrderBy(u => u.UserId)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
-                
+
             return (items, total);
         }
 

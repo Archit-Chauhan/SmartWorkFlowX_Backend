@@ -7,8 +7,8 @@ namespace SmartWorkFlowX.Application.Services
     /// </summary>
     public interface IAdminService
     {
-        Task<List<object>> GetAllUsersAsync();
-        Task<PaginatedList<object>> GetPaginatedUsersAsync(int page, int limit);
+        Task<List<object>> GetAllUsersAsync(string? search = null);
+        Task<PaginatedList<object>> GetPaginatedUsersAsync(int page, int limit, string? search = null);
         Task<List<object>> GetAllRolesAsync();
         Task<int> CreateUserAsync(UserCreateRequest request, int actingUserId);
         Task DeleteUserAsync(int targetUserId, int actingUserId);

@@ -10,8 +10,8 @@ namespace SmartWorkFlowX.Domain.Repositories
     {
         Task<User?> GetByIdAsync(int userId);
         Task<User?> GetByEmailWithRoleAsync(string email);
-        Task<IEnumerable<User>> GetAllWithRolesAsync();
-        Task<(IEnumerable<User> users, int total)> GetPaginatedAsync(int page, int pageSize);
+        Task<IEnumerable<User>> GetAllWithRolesAsync(string? search = null);
+        Task<(IEnumerable<User> users, int total)> GetPaginatedAsync(int page, int pageSize, string? search = null);
         Task<bool> EmailExistsAsync(string email);
         Task AddAsync(User user);
         Task UpdateAsync(User user);

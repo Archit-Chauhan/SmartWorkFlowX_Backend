@@ -22,9 +22,26 @@ namespace SmartWorkFlowX.Api.Controllers
         [HttpGet("users")]
         public async Task<IActionResult> GetUsers(
             [FromQuery] int page = 1,
-            [FromQuery] int limit = 10)
+            [FromQuery] int limit = 10,
+            [FromQuery] string? search = null)
         {
-            return Ok(await _adminService.GetPaginatedUsersAsync(page, limit));
+            return Ok(await _adminService.GetPaginatedUsersAsync(page, limit, search));
+        }
+
+        // GET: api/Admin/users/export
+        [HttpGet("users/export")]
+        public async Task<IActionResult> ExportUsers([FromQuery] string? search = null)
+        {
+            var users = await _adminService.GetAllUsersAsync(search);
+            var csv = new System.Text.StringBuilder();
+            csv.AppendLine("UserId,Name,Email,Role,CreatedAt");
+            var jsonStr = System.Text.Json.JsonSerializer.Serialize(users);
+            using var doc = System.Text.Json.JsonDocument.Parse(jsonStr);
+            foreach (var u in doc.RootElement.EnumerateArray())
+            {
+                csv.AppendLine($"{u.GetProperty("UserId").GetInt32()},{EscapeCsv(u.GetProperty("Name").GetString()!)},{EscapeCsv(u.GetProperty("Email").GetString()!)},{EscapeCsv(u.GetProperty("RoleName").GetString()!)},{u.GetProperty("CreatedAt").GetString()}");
+            }
+            return File(System.Text.Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", "users.csv");
         }
 
         // GET: api/Admin/roles
@@ -53,6 +70,11 @@ namespace SmartWorkFlowX.Api.Controllers
 
         private int GetUserId()
             => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        private static string EscapeCsv(string value)
+            => value.Contains(',') || value.Contains('"') || value.Contains('\n')
+                ? $"\"{value.Replace("\"", "\"\"")}\""
+                : value;
     }
 }
 

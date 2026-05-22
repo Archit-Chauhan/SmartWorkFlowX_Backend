@@ -1,12 +1,14 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using SmartWorkFlowX.Application.Dtos;
 using SmartWorkFlowX.Application.Services;
 using SmartWorkFlowX.Domain.Entities;
 using SmartWorkFlowX.Domain.Repositories;
+using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Google;
-using System.Security.Claims;
 
 namespace SmartWorkFlowX.Api.Controllers
 {
@@ -38,6 +40,7 @@ namespace SmartWorkFlowX.Api.Controllers
         }
 
         [HttpPost("login")]
+        [EnableRateLimiting("auth")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
             var user = await _userRepo.GetByEmailWithRoleAsync(request.Email);
@@ -63,6 +66,7 @@ namespace SmartWorkFlowX.Api.Controllers
         }
 
         [HttpPost("forgot-password")]
+        [EnableRateLimiting("auth")]
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
         {
 
@@ -113,6 +117,25 @@ namespace SmartWorkFlowX.Api.Controllers
             catch (ArgumentException ex)
             {
                 return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPost("change-password")]
+        [Authorize]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            try
+            {
+                await _authService.ChangePasswordAsync(userId, request.CurrentPassword, request.NewPassword);
+                return Ok(new { message = "Password changed successfully." });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
             }
         }
 
