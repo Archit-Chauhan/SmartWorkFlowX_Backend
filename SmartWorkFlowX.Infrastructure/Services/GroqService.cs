@@ -15,8 +15,8 @@ namespace SmartWorkFlowX.Infrastructure.Services
         private const string Model = "llama-3.1-8b-instant";
 
         private const string SystemPrompt =
-            "You are a professional project manager. Rewrite the user's rough task description into a clear, concise, and professional task description. " +
-            "Keep it factual and action-oriented. Use plain text only — no markdown, no bullet points, no headers. Return only the rewritten description, nothing else.";
+            "You are a professional project manager. Rewrite the user's rough task description into a clear, concise, 2-3 sentence professional task description. " +
+            "Be direct and action-oriented. No headers, no bullet points, no lists, no markdown — just plain flowing text. Return only the rewritten description, nothing else.";
 
         public GroqService(IHttpClientFactory httpClientFactory, IConfiguration configuration)
         {
