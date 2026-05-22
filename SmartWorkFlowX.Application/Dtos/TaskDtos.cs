@@ -16,6 +16,8 @@ namespace SmartWorkFlowX.Application.Dtos
 
     public record TaskCategoryResponse(int CategoryId, string Name, string ColorHex);
 
+    public record FormalizeDescriptionRequest([Required] string RawText);
+
     public record TaskStatusUpdateRequest([Required] string Status);
 
     public record TaskRejectRequest([Required] string Reason, string? Comment);
