@@ -22,6 +22,7 @@
   <ItemGroup>
     <ProjectReference Include="..\SmartWorkFlowX.Application\SmartWorkFlowX.Application.csproj" />
     <ProjectReference Include="..\SmartWorkFlowX.Domain\SmartWorkFlowX.Domain.csproj" />
+    <ProjectReference Include="..\SmartWorkFlowX.Infrastructure\SmartWorkFlowX.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
