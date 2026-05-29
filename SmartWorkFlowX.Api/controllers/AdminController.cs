@@ -46,7 +46,6 @@ namespace SmartWorkFlowX.Api.Controllers
 
         // GET: api/Admin/roles
         [HttpGet("roles")]
-        [Authorize(Roles = "Manager,Admin")]
         public async Task<IActionResult> GetAllRoles()
             => Ok(await _adminService.GetAllRolesAsync());
 

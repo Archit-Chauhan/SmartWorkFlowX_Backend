@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartWorkFlowX.Application.Dtos;
 using SmartWorkFlowX.Application.Services;
+using SmartWorkFlowX.Domain.Repositories;
 using System.Security.Claims;
 
 namespace SmartWorkFlowX.Api.Controllers
@@ -12,10 +13,12 @@ namespace SmartWorkFlowX.Api.Controllers
     public class WorkflowController : ControllerBase
     {
         private readonly IWorkflowService _workflowService;
+        private readonly IRoleRepository _roleRepo;
 
-        public WorkflowController(IWorkflowService workflowService)
+        public WorkflowController(IWorkflowService workflowService, IRoleRepository roleRepo)
         {
             _workflowService = workflowService;
+            _roleRepo = roleRepo;
         }
 
         // GET: api/Workflow
@@ -63,6 +66,14 @@ namespace SmartWorkFlowX.Api.Controllers
         {
             var newWorkflowId = await _workflowService.CloneAsync(id, GetUserId());
             return Ok(new { message = "Workflow cloned successfully.", newWorkflowId });
+        }
+
+        // GET: api/Workflow/roles
+        [HttpGet("roles")]
+        public async Task<IActionResult> GetApproverRoles()
+        {
+            var roles = await _roleRepo.GetAllAsync();
+            return Ok(roles.Select(r => new { r.RoleId, r.RoleName }));
         }
 
         private int GetUserId()
