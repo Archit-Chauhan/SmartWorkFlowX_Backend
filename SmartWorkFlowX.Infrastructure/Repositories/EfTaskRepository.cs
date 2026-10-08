@@ -21,7 +21,10 @@ namespace SmartWorkFlowX.Infrastructure.Repositories
             => await _context.Tasks
                 .Include(t => t.Workflow)
                 .Include(t => t.Category)
-                .Where(t => t.AssignedTo == userId && t.Status != "Completed" && t.Status != "Cancelled")
+                .Where(t => (t.AssignedTo == userId
+                             || (t.AssignedTo == null && t.AssignedRoleId != null
+                                 && t.AssignedRoleId == _context.Users.Where(u => u.UserId == userId).Select(u => (int?)u.RoleId).FirstOrDefault()))
+                            && t.Status != "Completed" && t.Status != "Cancelled")
                 .OrderByDescending(t => t.CreatedAt)
                 .ToListAsync();
 
@@ -56,8 +59,14 @@ namespace SmartWorkFlowX.Infrastructure.Repositories
                 .ThenBy(h => h.ActedAt)
                 .ToListAsync();
 
-        public async Task<User?> GetFirstUserByRoleAsync(int roleId)
-            => await _context.Users.FirstOrDefaultAsync(u => u.RoleId == roleId);
+        public async Task<bool> RoleHasUsersAsync(int roleId)
+            => await _context.Users.AnyAsync(u => u.RoleId == roleId);
+
+        public async Task<int?> GetUserRoleIdAsync(int userId)
+            => await _context.Users
+                .Where(u => u.UserId == userId)
+                .Select(u => (int?)u.RoleId)
+                .FirstOrDefaultAsync();
 
         public async Task<List<TaskItem>> GetMyActivityAsync(int userId)
         {
@@ -82,7 +91,10 @@ namespace SmartWorkFlowX.Infrastructure.Repositories
             var query = _context.Tasks
                 .Include(t => t.Workflow)
                 .Include(t => t.Category)
-                .Where(t => t.AssignedTo == userId && t.Status != "Completed" && t.Status != "Cancelled");
+                .Where(t => (t.AssignedTo == userId
+                             || (t.AssignedTo == null && t.AssignedRoleId != null
+                                 && t.AssignedRoleId == _context.Users.Where(u => u.UserId == userId).Select(u => (int?)u.RoleId).FirstOrDefault()))
+                            && t.Status != "Completed" && t.Status != "Cancelled");
 
             var total = await query.CountAsync();
             var items = await query
@@ -124,6 +136,15 @@ namespace SmartWorkFlowX.Infrastructure.Repositories
             => await _context.TaskStepHistories.AddAsync(history);
 
         public async Task SaveAsync()
-            => await _context.SaveChangesAsync();
+        {
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                throw new DbUpdateConcurrencyException("This task was already handled by another user. Please refresh.");
+            }
+        }
     }
 }

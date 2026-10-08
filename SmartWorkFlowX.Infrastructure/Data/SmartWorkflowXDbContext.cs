@@ -95,6 +95,12 @@ namespace SmartWorkFlowX.Infrastructure.Data
                 entity.HasKey(t => t.TaskId);
                 entity.Property(t => t.Priority).HasDefaultValue("Medium");
                 entity.Property(t => t.Status).HasDefaultValue("Pending");
+                entity.Property(t => t.RowVersion).IsRowVersion();
+
+                entity.HasOne<Role>()
+                      .WithMany()
+                      .HasForeignKey(t => t.AssignedRoleId)
+                      .OnDelete(DeleteBehavior.NoAction);
 
                 entity.HasOne(t => t.Assignee)
                       .WithMany()

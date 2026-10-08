@@ -182,7 +182,6 @@ namespace SmartWorkFlowX.Tests.Services
         [Fact(DisplayName = "TC-T08: Employee approves Step 0 — task advances to step 1, history recorded")]
         public async Task ApproveTaskAsync_Step0_AdvancesToStep1()
         {
-            var nextApprover = new User { UserId = 20, Name = "Manager" };
             var workflow = new Workflow
             {
                 WorkflowId = 1,
@@ -194,13 +193,14 @@ namespace SmartWorkFlowX.Tests.Services
             var task = BuildTask(1, assignedTo: 10, currentStep: 0, workflow: workflow);
 
             _taskRepoMock.Setup(r => r.GetByIdWithWorkflowAsync(1)).ReturnsAsync(task);
-            _taskRepoMock.Setup(r => r.GetFirstUserByRoleAsync(2)).ReturnsAsync(nextApprover);
+            _taskRepoMock.Setup(r => r.RoleHasUsersAsync(2)).ReturnsAsync(true);
 
             var status = await _taskService.ApproveTaskAsync(1, actingUserId: 10, comment: null);
 
             Assert.Equal("In Progress", status);
             Assert.Equal(1, task.CurrentStepOrder);
-            Assert.Equal(20, task.AssignedTo);
+            Assert.Null(task.AssignedTo);
+            Assert.Equal(2, task.AssignedRoleId);
 
             _taskRepoMock.Verify(r => r.AddHistoryAsync(It.Is<TaskStepHistory>(h =>
                 h.TaskId == 1 && h.StepOrder == 0 && h.Action == "Completed"
@@ -234,7 +234,6 @@ namespace SmartWorkFlowX.Tests.Services
         [Fact(DisplayName = "TC-T10: Manager approves intermediate step — task advances to next step")]
         public async Task ApproveTaskAsync_IntermediateStep_AdvancesToNextStep()
         {
-            var nextApprover = new User { UserId = 30, Name = "Admin" };
             var workflow = new Workflow
             {
                 WorkflowId = 1,
@@ -247,13 +246,49 @@ namespace SmartWorkFlowX.Tests.Services
             var task = BuildTask(1, assignedTo: 20, currentStep: 1, workflow: workflow);
 
             _taskRepoMock.Setup(r => r.GetByIdWithWorkflowAsync(1)).ReturnsAsync(task);
-            _taskRepoMock.Setup(r => r.GetFirstUserByRoleAsync(1)).ReturnsAsync(nextApprover);
+            _taskRepoMock.Setup(r => r.RoleHasUsersAsync(1)).ReturnsAsync(true);
 
             var status = await _taskService.ApproveTaskAsync(1, actingUserId: 20, comment: null);
 
             Assert.Equal("In Progress", status);
             Assert.Equal(2, task.CurrentStepOrder);
-            Assert.Equal(30, task.AssignedTo);
+            Assert.Null(task.AssignedTo);
+            Assert.Equal(1, task.AssignedRoleId);
+        }
+
+        [Fact(DisplayName = "TC-T15: Any user in the role pool can approve an unclaimed step and becomes the actor")]
+        public async Task ApproveTaskAsync_RolePoolMember_ClaimsAndApproves()
+        {
+            var workflow = new Workflow
+            {
+                WorkflowId = 1,
+                Steps = new List<WorkflowStep> { new WorkflowStep { StepOrder = 1, ApproverRoleId = 2 } }
+            };
+            var task = BuildTask(1, assignedTo: 20, currentStep: 1, workflow: workflow);
+            task.AssignedTo = null;
+            task.AssignedRoleId = 2;
+
+            _taskRepoMock.Setup(r => r.GetByIdWithWorkflowAsync(1)).ReturnsAsync(task);
+            _taskRepoMock.Setup(r => r.GetUserRoleIdAsync(25)).ReturnsAsync(2);
+
+            var status = await _taskService.ApproveTaskAsync(1, actingUserId: 25, comment: null);
+
+            Assert.Equal("Completed", status);
+            _taskRepoMock.Verify(r => r.AddHistoryAsync(It.Is<TaskStepHistory>(h => h.ActedByUserId == 25)), Times.Once);
+        }
+
+        [Fact(DisplayName = "TC-T16: User outside the role pool cannot act on an unclaimed step")]
+        public async Task ApproveTaskAsync_NonPoolUser_Throws()
+        {
+            var task = BuildTask(1, assignedTo: 20, currentStep: 1);
+            task.AssignedTo = null;
+            task.AssignedRoleId = 2;
+
+            _taskRepoMock.Setup(r => r.GetByIdWithWorkflowAsync(1)).ReturnsAsync(task);
+            _taskRepoMock.Setup(r => r.GetUserRoleIdAsync(99)).ReturnsAsync(3);
+
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(
+                () => _taskService.ApproveTaskAsync(1, actingUserId: 99, comment: null));
         }
 
         [Fact(DisplayName = "TC-T11: Reject task with OnRejectAction=Cancel — status becomes Cancelled")]

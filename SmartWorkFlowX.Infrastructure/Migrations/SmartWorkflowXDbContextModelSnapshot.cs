@@ -139,6 +139,9 @@ namespace SmartWorkFlowX.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TaskId"));
 
+                    b.Property<int?>("AssignedRoleId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("AssignedTo")
                         .HasColumnType("int");
 
@@ -178,6 +181,11 @@ namespace SmartWorkFlowX.Infrastructure.Migrations
                     b.Property<string>("RejectedReason")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -192,6 +200,8 @@ namespace SmartWorkFlowX.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("TaskId");
+
+                    b.HasIndex("AssignedRoleId");
 
                     b.HasIndex("AssignedTo");
 
@@ -391,6 +401,11 @@ namespace SmartWorkFlowX.Infrastructure.Migrations
 
             modelBuilder.Entity("SmartWorkFlowX.Domain.Entities.TaskItem", b =>
                 {
+                    b.HasOne("SmartWorkFlowX.Domain.Entities.Role", null)
+                        .WithMany()
+                        .HasForeignKey("AssignedRoleId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("SmartWorkFlowX.Domain.Entities.User", "Assignee")
                         .WithMany()
                         .HasForeignKey("AssignedTo")

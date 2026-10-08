@@ -12,6 +12,8 @@ namespace SmartWorkFlowX.Domain.Entities
         public string Status { get; set; } = "Pending"; // Pending | In Progress | Completed | Cancelled | Rejected
         public string Priority { get; set; } = "Medium"; // Low | Medium | High
         public int CurrentStepOrder { get; set; } = 0;    // 0 = Employee work stage, 1+ = approval steps
+        public int? AssignedRoleId { get; set; }          // Role pool for the current approval step; any user in this role may act while AssignedTo is null
+        public byte[]? RowVersion { get; set; }           // Concurrency token: first manager to act wins
         public int? OriginalAssignedTo { get; set; }      // Tracks the employee originally assigned (for GoBack to Step 0)
         public string? RejectedReason { get; set; }      // Set when a step is rejected
         public DateTime? DueDate { get; set; }

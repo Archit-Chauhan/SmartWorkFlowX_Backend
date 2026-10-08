@@ -116,13 +116,28 @@ namespace SmartWorkFlowX.Application.Services
             return newTask.TaskId;
         }
 
+        // The assignee may act; so may any user in the task's role pool while it is unclaimed.
+        // Acting claims the task (AssignedTo = actor) so history records who handled it.
+        private async Task EnsureCanActAndClaimAsync(TaskItem task, int actingUserId)
+        {
+            if (task.AssignedTo == actingUserId) return;
+
+            if (task.AssignedTo == null && task.AssignedRoleId.HasValue
+                && await _taskRepo.GetUserRoleIdAsync(actingUserId) == task.AssignedRoleId)
+            {
+                task.AssignedTo = actingUserId;
+                return;
+            }
+
+            throw new UnauthorizedAccessException("You are not the current assignee for this task.");
+        }
+
         public async Task<string> ApproveTaskAsync(int taskId, int actingUserId, string? comment)
         {
             var task = await _taskRepo.GetByIdWithWorkflowAsync(taskId)
                 ?? throw new KeyNotFoundException("Task not found.");
 
-            if (task.AssignedTo != actingUserId)
-                throw new UnauthorizedAccessException("You are not the current assignee for this task.");
+            await EnsureCanActAndClaimAsync(task, actingUserId);
 
             // Step 0 = Employee completing their work, Step 1+ = Approver approving
             var isEmployeeStep = task.CurrentStepOrder == 0;
@@ -148,10 +163,12 @@ namespace SmartWorkFlowX.Application.Services
 
             if (nextStep != null)
             {
-                var nextApprover = await _taskRepo.GetFirstUserByRoleAsync(nextStep.ApproverRoleId)
-                    ?? throw new ArgumentException("No user found with the required role for the next approval step.");
+                if (!await _taskRepo.RoleHasUsersAsync(nextStep.ApproverRoleId))
+                    throw new ArgumentException("No user found with the required role for the next approval step.");
 
-                task.AssignedTo = nextApprover.UserId;
+                // Assign to the whole role pool; the first user in the role to act claims it
+                task.AssignedTo = null;
+                task.AssignedRoleId = nextStep.ApproverRoleId;
                 task.CurrentStepOrder = nextStep.StepOrder;
                 task.Status = "In Progress";
             }
@@ -160,6 +177,7 @@ namespace SmartWorkFlowX.Application.Services
                 task.Status = "Completed";
                 task.CompletedAt = DateTime.UtcNow;
                 task.AssignedTo = null;
+                task.AssignedRoleId = null;
             }
 
             await _taskRepo.SaveAsync();
@@ -170,7 +188,8 @@ namespace SmartWorkFlowX.Application.Services
                 EntityName = "Tasks",
                 ActionDescription = $"{actionLabel} Task ID={taskId} at Step {task.CurrentStepOrder}. New Status: {task.Status}.",
                 ActedByUserId = actingUserId,
-                TargetUserId = nextStep != null ? task.AssignedTo : null,
+                TargetUserId = null,
+                TargetRoleId = nextStep != null ? task.AssignedRoleId : null,
                 NotificationMessage = nextStep != null ? $"Task '{task.Title}' requires your approval at step {nextStep.StepOrder}: {nextStep.StepName}." : string.Empty,
                 Timestamp = DateTime.UtcNow
             });
@@ -183,10 +202,9 @@ namespace SmartWorkFlowX.Application.Services
             var task = await _taskRepo.GetByIdWithWorkflowAsync(taskId)
                 ?? throw new KeyNotFoundException("Task not found.");
 
-            if (task.AssignedTo != actingUserId)
-                throw new UnauthorizedAccessException("You are not the current assignee for this task.");
+            await EnsureCanActAndClaimAsync(task, actingUserId);
 
-            var currentStep = task.Workflow?.Steps
+            var currentStep =task.Workflow?.Steps
                 .FirstOrDefault(s => s.StepOrder == task.CurrentStepOrder);
 
             await _taskRepo.AddHistoryAsync(new TaskStepHistory
@@ -217,10 +235,11 @@ namespace SmartWorkFlowX.Application.Services
                 if (previousStep != null)
                 {
                     // Go back to the previous approval step
-                    var prevApprover = await _taskRepo.GetFirstUserByRoleAsync(previousStep.ApproverRoleId);
-                    if (prevApprover != null)
+                    if (await _taskRepo.RoleHasUsersAsync(previousStep.ApproverRoleId))
                     {
-                        task.AssignedTo = prevApprover.UserId;
+                        // Back to the previous role pool: any user in that role may pick it up
+                        task.AssignedTo = null;
+                        task.AssignedRoleId = previousStep.ApproverRoleId;
                         task.CurrentStepOrder = previousStep.StepOrder;
                         task.Status = "In Progress";
                     }
@@ -228,12 +247,14 @@ namespace SmartWorkFlowX.Application.Services
                     {
                         task.Status = "Cancelled";
                         task.AssignedTo = null;
+                        task.AssignedRoleId = null;
                     }
                 }
                 else if (task.OriginalAssignedTo.HasValue)
                 {
                     // No previous workflow step exists → go back to Step 0 (original employee)
                     task.AssignedTo = task.OriginalAssignedTo.Value;
+                    task.AssignedRoleId = null;
                     task.CurrentStepOrder = 0;
                     task.Status = "In Progress";
                 }
@@ -241,6 +262,7 @@ namespace SmartWorkFlowX.Application.Services
                 {
                     task.Status = "Cancelled";
                     task.AssignedTo = null;
+                    task.AssignedRoleId = null;
                 }
             }
             else
@@ -248,12 +270,13 @@ namespace SmartWorkFlowX.Application.Services
                 // OnRejectAction == "Cancel" or no step found
                 task.Status = "Cancelled";
                 task.AssignedTo = null;
+                task.AssignedRoleId = null;
             }
 
             await _taskRepo.SaveAsync();
 
             string notificationMessage = string.Empty;
-            if (task.Status == "In Progress" && task.AssignedTo.HasValue)
+            if (task.Status == "In Progress" && (task.AssignedTo.HasValue || task.AssignedRoleId.HasValue))
             {
                 if (task.CurrentStepOrder > 0)
                 {
@@ -273,6 +296,7 @@ namespace SmartWorkFlowX.Application.Services
                 ActionDescription = $"Rejected Task ID={taskId} at Step {task.CurrentStepOrder}. Reason: {request.Reason}. New Status: {task.Status}.",
                 ActedByUserId = actingUserId,
                 TargetUserId = task.AssignedTo,
+                TargetRoleId = task.AssignedTo.HasValue ? null : task.AssignedRoleId,
                 NotificationMessage = notificationMessage,
                 Timestamp = DateTime.UtcNow
             });

@@ -70,6 +70,19 @@ namespace SmartWorkFlowX.Api.Workers
                     // Targeted notification (e.g. Task Assigned)
                     await notificationService.SendNotificationAsync(eventData.TargetUserId.Value, eventData.NotificationMessage);
                 }
+                else if (eventData.TargetRoleId.HasValue)
+                {
+                    // Role-pool notification (e.g. approval step assigned to every user in a role)
+                    var roleUserIds = await dbContext.Users
+                        .Where(u => u.RoleId == eventData.TargetRoleId.Value)
+                        .Select(u => u.UserId)
+                        .ToListAsync();
+
+                    foreach (var roleUserId in roleUserIds)
+                    {
+                        await notificationService.SendNotificationAsync(roleUserId, eventData.NotificationMessage);
+                    }
+                }
                 else if (eventData.EntityName == "Workflows")
                 {
                     // Broadcast notification to Managers (e.g. Workflow Created)
