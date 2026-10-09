@@ -42,7 +42,7 @@ namespace SmartWorkFlowX.Infrastructure.Repositories
 
         public async Task<bool> HasActiveTasksAsync(int workflowId)
             => await _context.Tasks
-                .AnyAsync(t => t.WorkflowId == workflowId && t.Status == "In Progress");
+                .AnyAsync(t => t.WorkflowId == workflowId && (t.Status == "In Progress" || t.Status == "Pending"));
 
         public async Task<bool> TitleExistsAsync(string trimmedTitle, int? excludeWorkflowId)
         {
