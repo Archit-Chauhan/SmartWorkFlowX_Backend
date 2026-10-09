@@ -198,6 +198,13 @@ namespace SmartWorkFlowX.Infrastructure.Repositories
                 .Select(u => (int?)u.RoleId)
                 .FirstOrDefaultAsync();
 
+        public async Task<Dictionary<int, int>> GetOpenTaskCountsByAssigneeAsync()
+            => await _context.Tasks
+                .Where(t => t.AssignedTo != null && (t.Status == "Pending" || t.Status == "In Progress"))
+                .GroupBy(t => t.AssignedTo!.Value)
+                .Select(g => new { UserId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.UserId, x => x.Count);
+
         public async Task<List<TaskItem>> GetMyActivityAsync(int userId)
         {
             // Get IDs of tasks the user has acted on

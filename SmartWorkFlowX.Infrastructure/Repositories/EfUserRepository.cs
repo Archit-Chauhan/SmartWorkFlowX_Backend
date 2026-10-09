@@ -54,6 +54,17 @@ namespace SmartWorkFlowX.Infrastructure.Repositories
             return await query.OrderBy(u => u.IsDeleted).ThenBy(u => u.UserId).ToListAsync();
         }
 
+        public async Task<List<User>> GetActiveWithRolesAsync()
+            => await _context.Users
+                .Where(u => !u.IsDeleted)
+                .Include(u => u.Role)
+                .OrderBy(u => u.Name)
+                .ThenBy(u => u.UserId)
+                .ToListAsync();
+
+        public async Task<bool> ActiveUserExistsAsync(int userId)
+            => await _context.Users.AnyAsync(u => u.UserId == userId && !u.IsDeleted);
+
         public async Task<UserListPage> GetUserListAsync(UserListQuery q)
         {
             IQueryable<User> baseQuery = SearchAndRole(q.Search, q.RoleId);

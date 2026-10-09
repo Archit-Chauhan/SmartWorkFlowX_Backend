@@ -27,6 +27,12 @@ namespace SmartWorkFlowX.Domain.Repositories
         /// <summary>Number of active (not deactivated) users whose role is Admin.</summary>
         Task<int> CountActiveAdminsAsync();
 
+        /// <summary>Active (not soft-deleted) users with their Role, ordered by Name.</summary>
+        Task<List<User>> GetActiveWithRolesAsync();
+
+        /// <summary>True when the user exists and is not soft-deleted.</summary>
+        Task<bool> ActiveUserExistsAsync(int userId);
+
         Task<bool> EmailExistsAsync(string email);
         Task AddAsync(User user);
         Task UpdateAsync(User user);

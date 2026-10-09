@@ -24,6 +24,14 @@ namespace SmartWorkFlowX.Application.Dtos
 
     // --- Response DTOs ---
 
+    public record AssignableUserResponse(
+        int UserId,
+        string Name,
+        string Email,
+        string RoleName,
+        int OpenTaskCount
+    );
+
     public record TaskStepHistoryResponse(
         int StepOrder,
         string ActedByName,

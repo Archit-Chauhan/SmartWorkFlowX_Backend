@@ -5,6 +5,7 @@ namespace SmartWorkFlowX.Domain.Repositories
     public interface ITaskCategoryRepository
     {
         Task<List<TaskCategory>> GetAllActiveAsync();
+        Task<bool> ExistsActiveAsync(int categoryId);
         Task SaveAsync();
     }
 }

@@ -77,7 +77,8 @@ namespace SmartWorkFlowX.Tests.Services
 
             var taskService = new TaskService(
                 taskRepoMock.Object, workflowRepoMock.Object, auditRepoMock.Object,
-                notificationServiceMock.Object, publisherMock.Object, categoryRepoMock.Object);
+                notificationServiceMock.Object, publisherMock.Object, categoryRepoMock.Object,
+                new Mock<IUserRepository>().Object);
 
             // Only userId=5's tasks are returned — userId=6's tasks are never exposed.
             var userTasks = new List<TaskItem>
@@ -109,9 +110,13 @@ namespace SmartWorkFlowX.Tests.Services
             publisherMock.Setup(p => p.PublishSystemEventAsync(It.IsAny<SystemEventMessage>()))
                 .Returns(Task.CompletedTask);
 
+            var userRepoMock = new Mock<IUserRepository>();
+            userRepoMock.Setup(r => r.ActiveUserExistsAsync(10)).ReturnsAsync(true);
+
             var taskService = new TaskService(
                 taskRepoMock.Object, workflowRepoMock.Object, auditRepoMock.Object,
-                notificationServiceMock.Object, publisherMock.Object, categoryRepoMock.Object);
+                notificationServiceMock.Object, publisherMock.Object, categoryRepoMock.Object,
+                userRepoMock.Object);
 
             var activeWorkflow = new Workflow
             {
