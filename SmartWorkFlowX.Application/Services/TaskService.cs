@@ -71,6 +71,21 @@ namespace SmartWorkFlowX.Application.Services
             }).ToList();
         }
 
+        public async Task<AllTasksPagedResponse> GetAllTasksPagedAsync(AllTasksRequest request)
+        {
+            var query = AllTasksQueryParser.Parse(request, DateTime.UtcNow);
+            var result = await _taskRepo.GetAllTasksPagedAsync(query);
+
+            return new AllTasksPagedResponse
+            {
+                Data = result.Rows,
+                Total = result.Total,
+                Page = query.Page,
+                PageSize = query.Limit,
+                Counts = result.Counts
+            };
+        }
+
         public async Task<int> AssignTaskAsync(TaskCreateRequest request, int actingUserId)
         {
             var workflow = await _workflowRepo.GetByIdWithStepsAsync(request.WorkflowId)

@@ -43,8 +43,36 @@ namespace SmartWorkFlowX.Api.Controllers
         public async Task<IActionResult> GetAllTasks(
             [FromQuery] string? status,
             [FromQuery] string? priority,
-            [FromQuery] int? assignedTo)
-            => Ok(await _taskService.GetAllFilteredAsync(status, priority, assignedTo));
+            [FromQuery] int? assignedTo,
+            [FromQuery] int? categoryId,
+            [FromQuery] int? page,
+            [FromQuery] int? limit,
+            [FromQuery] string? q,
+            [FromQuery] string? group,
+            [FromQuery] bool? overdue,
+            [FromQuery] string? sort,
+            [FromQuery] string? dir)
+        {
+            // No "page": legacy plain-array response (kept for older clients), now honouring categoryId.
+            if (!page.HasValue)
+                return Ok(await _taskService.GetAllFilteredAsync(status, priority, assignedTo, categoryId));
+
+            var request = new AllTasksRequest
+            {
+                Page = page,
+                Limit = limit,
+                Q = q,
+                Group = group,
+                Status = status,
+                Priority = priority,
+                CategoryId = categoryId,
+                AssignedTo = assignedTo,
+                Overdue = overdue,
+                Sort = sort,
+                Dir = dir
+            };
+            return Ok(await _taskService.GetAllTasksPagedAsync(request));
+        }
 
         // POST: api/Task/assign
         [HttpPost("assign")]

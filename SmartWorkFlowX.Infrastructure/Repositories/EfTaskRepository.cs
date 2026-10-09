@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SmartWorkFlowX.Application.Services;
 using SmartWorkFlowX.Domain.Entities;
 using SmartWorkFlowX.Domain.Repositories;
 using SmartWorkFlowX.Infrastructure.Data;
@@ -49,6 +50,135 @@ namespace SmartWorkFlowX.Infrastructure.Repositories
                 query = query.Where(t => t.CategoryId == categoryId);
 
             return await query.OrderByDescending(t => t.CreatedAt).ToListAsync();
+        }
+
+        public async Task<AllTasksPage> GetAllTasksPagedAsync(AllTasksQuery q)
+        {
+            // Filters shared by the rows and the tab counts (everything except group/status).
+            var filtered = _context.Tasks.AsNoTracking().AsQueryable();
+
+            if (q.Priority != null)
+                filtered = filtered.Where(t => t.Priority == q.Priority);
+
+            if (q.CategoryId.HasValue)
+                filtered = filtered.Where(t => t.CategoryId == q.CategoryId);
+
+            if (q.AssignedTo.HasValue)
+                filtered = filtered.Where(t => t.AssignedTo == q.AssignedTo);
+
+            if (q.Overdue)
+            {
+                var now = q.Now;
+                filtered = filtered.Where(t =>
+                    (t.Status == "Pending" || t.Status == "In Progress")
+                    && t.DueDate != null && t.DueDate < now);
+            }
+
+            if (!string.IsNullOrEmpty(q.Search))
+            {
+                var pattern = "%" + AllTasksQueryParser.EscapeLike(q.Search) + "%";
+                filtered = filtered.Where(t =>
+                    EF.Functions.Like(t.Title, pattern, "\\")
+                    || EF.Functions.Like(t.Description!, pattern, "\\")
+                    || EF.Functions.Like(t.Workflow!.Title, pattern, "\\")
+                    || EF.Functions.Like(t.Assignee!.Name, pattern, "\\"));
+            }
+
+            // One grouped query gives every tab count; the page total is derived from it.
+            var grouped = await filtered
+                .GroupBy(t => t.Status)
+                .Select(g => new { Status = g.Key, Count = g.Count() })
+                .ToListAsync();
+
+            var byStatus = new Dictionary<string, int>();
+            foreach (var g in grouped) byStatus[g.Status] = g.Count;
+
+            var result = new AllTasksPage
+            {
+                Counts = AllTasksCounts.FromStatusCounts(byStatus),
+                Total = AllTasksCounts.Sum(byStatus, q.Statuses)
+            };
+
+            int skip = (q.Page - 1) * q.Limit;
+            if (q.Statuses.Count == 0 || skip >= result.Total)
+                return result;   // nothing can match, or the page is past the end
+
+            var statuses = q.Statuses;
+            var ordered = ApplyAllTasksOrder(filtered.Where(t => statuses.Contains(t.Status)), q);
+
+            result.Rows = await ordered
+                .Skip(skip)
+                .Take(q.Limit)
+                .Select(t => new AllTasksRow
+                {
+                    TaskId = t.TaskId,
+                    Title = t.Title,
+                    Description = t.Description,
+                    WorkflowId = t.WorkflowId,
+                    WorkflowTitle = t.Workflow != null ? t.Workflow.Title : null,
+                    TotalSteps = t.Workflow != null ? (int?)t.Workflow.Steps.Count() : null,
+                    CurrentStepOrder = t.CurrentStepOrder,
+                    Status = t.Status,
+                    Priority = t.Priority,
+                    DueDate = t.DueDate,
+                    CompletedAt = t.CompletedAt,
+                    RejectedReason = t.RejectedReason,
+                    CreatedAt = t.CreatedAt,
+                    AssignedTo = t.AssignedTo,
+                    AssigneeName = t.Assignee != null ? t.Assignee.Name : null,
+                    AssignedRoleName = (t.AssignedTo == null && t.AssignedRoleId != null)
+                        ? _context.Roles.Where(r => r.RoleId == t.AssignedRoleId).Select(r => r.RoleName).FirstOrDefault()
+                        : null,
+                    CategoryId = t.CategoryId,
+                    CategoryName = t.Category != null ? t.Category.Name : null,
+                    CategoryColor = t.Category != null ? t.Category.ColorHex : null
+                })
+                .ToListAsync();
+
+            return result;
+        }
+
+        // Stable ordering: the chosen key, then CreatedAt desc, then TaskId asc (so paging never repeats or skips rows).
+        private static IOrderedQueryable<TaskItem> ApplyAllTasksOrder(IQueryable<TaskItem> query, AllTasksQuery q)
+        {
+            IOrderedQueryable<TaskItem> ordered;
+            bool desc = q.Descending;
+
+            switch (q.Sort)
+            {
+                case "created":
+                    ordered = desc ? query.OrderByDescending(t => t.CreatedAt) : query.OrderBy(t => t.CreatedAt);
+                    break;
+                case "priority":
+                    // High = 0, Medium = 1, Low = 2; ascending puts High first
+                    ordered = desc
+                        ? query.OrderByDescending(t => t.Priority == "High" ? 0 : (t.Priority == "Medium" ? 1 : 2))
+                        : query.OrderBy(t => t.Priority == "High" ? 0 : (t.Priority == "Medium" ? 1 : 2));
+                    break;
+                case "title":
+                    ordered = desc ? query.OrderByDescending(t => t.Title) : query.OrderBy(t => t.Title);
+                    break;
+                case "workflow":
+                    ordered = desc ? query.OrderByDescending(t => t.Workflow!.Title) : query.OrderBy(t => t.Workflow!.Title);
+                    break;
+                case "assignee":
+                    // tasks nobody holds always last, in both directions
+                    ordered = desc
+                        ? query.OrderBy(t => t.Assignee == null).ThenByDescending(t => t.Assignee!.Name)
+                        : query.OrderBy(t => t.Assignee == null).ThenBy(t => t.Assignee!.Name);
+                    break;
+                case "status":
+                    ordered = desc ? query.OrderByDescending(t => t.Status) : query.OrderBy(t => t.Status);
+                    break;
+                default:
+                    // "due": tasks without a due date always last, in both directions
+                    ordered = desc
+                        ? query.OrderBy(t => t.DueDate == null).ThenByDescending(t => t.DueDate)
+                        : query.OrderBy(t => t.DueDate == null).ThenBy(t => t.DueDate);
+                    break;
+            }
+
+            return ordered.ThenByDescending(t => t.CreatedAt).ThenBy(t => t.TaskId);
         }
 
         public async Task<List<TaskStepHistory>> GetHistoryAsync(int taskId)
