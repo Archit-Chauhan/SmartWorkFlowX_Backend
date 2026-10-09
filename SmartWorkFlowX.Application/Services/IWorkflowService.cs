@@ -12,6 +12,8 @@ namespace SmartWorkFlowX.Application.Services
         Task<WorkflowDetailResponse> GetByIdAsync(int workflowId);
         Task<int> CreateAsync(WorkflowCreateRequest request, int createdByUserId);
         Task UpdateAsync(int workflowId, WorkflowUpdateRequest request, int actingUserId);
+        /// <summary>Activates a workflow (idempotent); returns the success message.</summary>
+        Task<string> ActivateAsync(int workflowId, int actingUserId);
         Task DeactivateAsync(int workflowId, int actingUserId);
         Task<int> CloneAsync(int workflowId, int actingUserId);
     }

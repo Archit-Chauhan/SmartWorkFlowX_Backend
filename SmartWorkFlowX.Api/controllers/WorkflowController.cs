@@ -52,6 +52,14 @@ namespace SmartWorkFlowX.Api.Controllers
             return Ok(new { message = "Workflow updated successfully." });
         }
 
+        // POST: api/Workflow/{id}/activate
+        [HttpPost("{id}/activate")]
+        public async Task<IActionResult> ActivateWorkflow(int id)
+        {
+            var message = await _workflowService.ActivateAsync(id, GetUserId());
+            return Ok(new { message });
+        }
+
         // DELETE: api/Workflow/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteWorkflow(int id)
