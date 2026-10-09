@@ -141,7 +141,8 @@ namespace SmartWorkFlowX.Tests.Services
             var authServiceMock = new Mock<IAuthService>();
             var emailServiceMock = new Mock<IEmailService>();
 
-            userRepoMock.Setup(r => r.EmailExistsAsync(It.IsAny<string>())).ReturnsAsync(false);
+            userRepoMock.Setup(r => r.GetByEmailWithRoleAsync(It.IsAny<string>())).ReturnsAsync((User?)null);
+            roleRepoMock.Setup(r => r.GetByIdAsync(3)).ReturnsAsync(new Role { RoleId = 3, RoleName = "Employee" });
             authServiceMock.Setup(s => s.HashPassword(It.IsAny<string>())).Returns("hashed");
 
             var adminService = new AdminService(
@@ -174,7 +175,7 @@ namespace SmartWorkFlowX.Tests.Services
                 new User { UserId = 1, Name = "Alice", Email = "alice@test.com",
                     PasswordHash = "secret-bcrypt-hash", RoleId = 1, Role = role, CreatedAt = DateTime.UtcNow }
             };
-            userRepoMock.Setup(r => r.GetAllWithRolesAsync(It.IsAny<string?>())).ReturnsAsync(users);
+            userRepoMock.Setup(r => r.GetAllWithRolesAsync(It.IsAny<string?>(), It.IsAny<string>(), It.IsAny<int?>())).ReturnsAsync(users);
 
             var adminService = new AdminService(
                 userRepoMock.Object, roleRepoMock.Object, auditRepoMock.Object,
@@ -215,7 +216,8 @@ namespace SmartWorkFlowX.Tests.Services
             // Repository receives page=-1; EF Core Skip((-1-1)*10) = Skip(-20) would throw.
             // Controller default parameter [FromQuery] int page = 1 prevents negative values
             // from reaching the service in normal flow. Model validation or clamping at API layer.
-            userRepoMock.Setup(r => r.GetPaginatedAsync(1, 10, null)).ReturnsAsync((users, 1));
+            userRepoMock.Setup(r => r.GetUserListAsync(It.IsAny<UserListQuery>()))
+                .ReturnsAsync(new UserListPage { Users = users, Total = 1 });
 
             var adminService = new AdminService(
                 userRepoMock.Object, roleRepoMock.Object, auditRepoMock.Object,

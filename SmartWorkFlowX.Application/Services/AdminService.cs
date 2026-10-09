@@ -27,9 +27,13 @@ namespace SmartWorkFlowX.Application.Services
             _emailService = emailService;
         }
 
-        public async Task<List<object>> GetAllUsersAsync(string? search = null)
+        private const string AdminRoleName = "Admin";
+
+        public async Task<List<object>> GetAllUsersAsync(string? search = null, string? status = null, int? roleId = null)
         {
-            var users = await _userRepo.GetAllWithRolesAsync(search);
+            string cleanStatus = UserListQueryParser.ParseStatus(status);
+            string? cleanSearch = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
+            var users = await _userRepo.GetAllWithRolesAsync(cleanSearch, cleanStatus, roleId);
             return users.Select(u => (object)new
             {
                 u.UserId,
@@ -43,10 +47,17 @@ namespace SmartWorkFlowX.Application.Services
             }).ToList();
         }
 
-        public async Task<PaginatedList<object>> GetPaginatedUsersAsync(int page, int limit, string? search = null)
+        public async Task<UsersPagedResponse> GetPaginatedUsersAsync(
+            int page, int limit, string? search = null, string? status = null,
+            int? roleId = null, string? sort = null, string? dir = null)
         {
-            var (users, total) = await _userRepo.GetPaginatedAsync(page, limit, search);
-            var mapped = users.Select(u => (object)new
+            var query = UserListQueryParser.Parse(page, limit, search, status, roleId, sort, dir);
+            var result = await _userRepo.GetUserListAsync(query);
+
+            var ids = result.Users.Select(u => u.UserId).ToList();
+            var openCounts = await _userRepo.GetOpenTaskCountsAsync(ids);
+
+            var mapped = result.Users.Select(u => (object)new
             {
                 u.UserId,
                 u.Name,
@@ -55,15 +66,17 @@ namespace SmartWorkFlowX.Application.Services
                 u.RoleId,
                 u.CreatedAt,
                 u.IsDeleted,
-                u.DeletedAt
+                u.DeletedAt,
+                OpenTaskCount = (openCounts != null && openCounts.TryGetValue(u.UserId, out var open)) ? open : 0
             }).ToList();
 
-            return new PaginatedList<object>
+            return new UsersPagedResponse
             {
                 Data = mapped,
-                Total = total,
-                Page = page,
-                PageSize = limit
+                Total = result.Total,
+                Page = query.Page,
+                PageSize = query.Limit,
+                Counts = result.Counts
             };
         }
 
@@ -79,14 +92,29 @@ namespace SmartWorkFlowX.Application.Services
 
         public async Task<int> CreateUserAsync(UserCreateRequest request, int actingUserId)
         {
-            if (await _userRepo.EmailExistsAsync(request.Email))
+            // Validation order is fixed by the contract (USERS_CONTRACT.md section 4).
+            UserCreateValidator.ValidateIdentity(request.Name, request.Email, out string name, out string email);
+
+            var existing = await _userRepo.GetByEmailWithRoleAsync(email);
+            if (existing != null)
+            {
+                if (existing.IsDeleted)
+                    throw new ArgumentException("A deactivated user with this email already exists. Restore them instead.");
                 throw new ArgumentException("A user with this email already exists.");
+            }
+
+            UserCreateValidator.ValidatePassword(request.Password);
+            string password = request.Password!;
+
+            var role = await _roleRepo.GetByIdAsync(request.RoleId);
+            if (role == null)
+                throw new ArgumentException("The selected role was not found.");
 
             var user = new User
             {
-                Name = request.Name,
-                Email = request.Email,
-                PasswordHash = _authService.HashPassword(request.Password),
+                Name = name,
+                Email = email,
+                PasswordHash = _authService.HashPassword(password),
                 RoleId = request.RoleId
             };
 
@@ -94,7 +122,7 @@ namespace SmartWorkFlowX.Application.Services
             await _auditRepo.AddAsync(new AuditLog
             {
                 UserId = actingUserId,
-                Action = $"Admin created user '{request.Email}' with RoleId={request.RoleId}.",
+                Action = $"Admin created user '{email}' with RoleId={request.RoleId}.",
                 EntityName = "Users",
                 Timestamp = DateTime.UtcNow
             });
@@ -118,7 +146,7 @@ namespace SmartWorkFlowX.Application.Services
                             </div>
                             
                             <p style='font-size: 16px; margin-bottom: 20px;'>
-                                Hello <strong>{request.Name}</strong>,
+                                Hello <strong>{name}</strong>,
                             </p>
                             
                             <p style='font-size: 15px; margin-bottom: 20px;'>
@@ -127,8 +155,8 @@ namespace SmartWorkFlowX.Application.Services
                             
                             <div style='background-color: #ecf0f1; padding: 20px; border-left: 4px solid #3498db; margin: 25px 0; border-radius: 4px;'>
                                 <h3 style='color: #2c3e50; margin-top: 0; font-size: 16px;'>Your Account Details:</h3>
-                                <p style='margin: 8px 0;'><strong>Email Address:</strong> {request.Email}</p>
-                                <p style='margin: 8px 0;'><strong>Password:</strong> {request.Password}</p>
+                                <p style='margin: 8px 0;'><strong>Email Address:</strong> {email}</p>
+                                <p style='margin: 8px 0;'><strong>Password:</strong> {password}</p>
                                 <p style='margin: 8px 0;'><strong>Account Status:</strong> <span style='color: #27ae60; font-weight: bold;'>Active</span></p>
                             </div>
                             
@@ -157,12 +185,12 @@ namespace SmartWorkFlowX.Application.Services
                     </body>
                     </html>";
 
-                await _emailService.SendEmailAsync(request.Email, emailSubject, emailBody);
+                await _emailService.SendEmailAsync(email, emailSubject, emailBody);
             }
             catch (Exception ex)
             {
                 // Log the exception but don't fail the user creation if email sending fails
-                System.Console.WriteLine($"Failed to send registration email to {request.Email}: {ex.Message}");
+                System.Console.WriteLine($"Failed to send registration email to {email}: {ex.Message}");
             }
 
             return user.UserId;
@@ -173,8 +201,16 @@ namespace SmartWorkFlowX.Application.Services
             if (targetUserId == actingUserId)
                 throw new ArgumentException("You cannot delete your own account.");
 
-            var user = await _userRepo.GetByIdAsync(targetUserId)
-                ?? throw new KeyNotFoundException("User not found.");
+            var user = await _userRepo.GetByIdIncludingDeletedAsync(targetUserId);
+            if (user == null || user.IsDeleted)
+                throw new KeyNotFoundException("User not found.");
+
+            if (user.Role != null && user.Role.RoleName == AdminRoleName)
+            {
+                var activeAdmins = await _userRepo.CountActiveAdminsAsync();
+                if (activeAdmins <= 1)
+                    throw new ArgumentException("The last active Admin cannot be deactivated. Make someone else an Admin first.");
+            }
 
             await _userRepo.SoftDeleteAsync(targetUserId);
             await _auditRepo.AddAsync(new AuditLog
@@ -189,7 +225,7 @@ namespace SmartWorkFlowX.Application.Services
 
         public async Task RestoreUserAsync(int targetUserId, int actingUserId)
         {
-            var user = await _userRepo.GetByIdAsync(targetUserId)
+            var user = await _userRepo.GetByIdIncludingDeletedAsync(targetUserId)
                 ?? throw new KeyNotFoundException("User not found.");
 
             await _userRepo.RestoreAsync(targetUserId);
@@ -201,6 +237,50 @@ namespace SmartWorkFlowX.Application.Services
                 Timestamp = DateTime.UtcNow
             });
             await _userRepo.SaveAsync();
+        }
+
+        public async Task<bool> ChangeUserRoleAsync(int targetUserId, int newRoleId, int actingUserId)
+        {
+            // Rule order is fixed by the contract (USERS_CONTRACT.md section 2).
+            var user = await _userRepo.GetByIdIncludingDeletedAsync(targetUserId)
+                ?? throw new KeyNotFoundException("User not found.");
+
+            var newRole = await _roleRepo.GetByIdAsync(newRoleId);
+            if (newRole == null)
+                throw new ArgumentException("The selected role was not found.");
+
+            if (targetUserId == actingUserId)
+                throw new ArgumentException("You cannot change your own role.");
+
+            if (user.IsDeleted)
+                throw new ArgumentException("Restore the user before changing their role.");
+
+            if (user.RoleId == newRoleId)
+                return false;
+
+            string oldRoleName = user.Role?.RoleName ?? "No Role";
+
+            bool isAdminNow = user.Role != null && user.Role.RoleName == AdminRoleName;
+            bool staysAdmin = newRole.RoleName == AdminRoleName;
+            if (isAdminNow && !staysAdmin)
+            {
+                var activeAdmins = await _userRepo.CountActiveAdminsAsync();
+                if (activeAdmins <= 1)
+                    throw new ArgumentException("The last active Admin cannot be demoted. Make someone else an Admin first.");
+            }
+
+            user.RoleId = newRoleId;
+            user.Role = newRole;
+
+            await _auditRepo.AddAsync(new AuditLog
+            {
+                UserId = actingUserId,
+                Action = $"Admin changed role of user '{user.Email}' (ID={targetUserId}) from {oldRoleName} to {newRole.RoleName}.",
+                EntityName = "Users",
+                Timestamp = DateTime.UtcNow
+            });
+            await _userRepo.SaveAsync();
+            return true;
         }
     }
 }
