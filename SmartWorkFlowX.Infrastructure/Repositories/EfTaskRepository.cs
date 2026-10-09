@@ -97,8 +97,13 @@ namespace SmartWorkFlowX.Infrastructure.Repositories
                             && t.Status != "Completed" && t.Status != "Cancelled");
 
             var total = await query.CountAsync();
+            // Most urgent first: earliest due date, tasks without a due date last, then newest.
+            // The My Tasks screen groups by urgency and walks this order in review mode, so it must be stable across pages.
             var items = await query
-                .OrderByDescending(t => t.CreatedAt)
+                .OrderBy(t => t.DueDate == null)
+                .ThenBy(t => t.DueDate)
+                .ThenByDescending(t => t.CreatedAt)
+                .ThenBy(t => t.TaskId)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
