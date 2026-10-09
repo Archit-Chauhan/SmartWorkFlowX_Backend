@@ -18,8 +18,11 @@ namespace SmartWorkFlowX.Api.Controllers
             _reportService = reportService;
         }
 
-        // GET: api/Report/analytics — available to ALL authenticated users (Dashboard home page)
+        // GET: api/Report/analytics — organisation-wide counts and per-user task figures.
+        // Restricted to the roles that hold the dashboard 'org-totals' permission. The dashboard itself now uses
+        // GET api/Report/dashboard, which scopes every number to the signed-in user's role.
         [HttpGet("analytics")]
+        [Authorize(Roles = "Admin,Manager")]
         public async Task<IActionResult> GetAnalytics()
             => Ok(await _reportService.GetAnalyticsAsync());
 
