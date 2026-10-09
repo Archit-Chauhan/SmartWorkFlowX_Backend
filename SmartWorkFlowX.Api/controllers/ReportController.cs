@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
+using SmartWorkFlowX.Application.Dtos;
 using SmartWorkFlowX.Application.Services;
 
 namespace SmartWorkFlowX.Api.Controllers
@@ -20,6 +22,30 @@ namespace SmartWorkFlowX.Api.Controllers
         [HttpGet("analytics")]
         public async Task<IActionResult> GetAnalytics()
             => Ok(await _reportService.GetAnalyticsAsync());
+
+        // GET: api/Report/dashboard — any signed-in user. WHAT they get (task scope, sections) is decided on the server
+        // from their role; the response lists the permissions granted so the UI renders only those sections.
+        [HttpGet("dashboard")]
+        public async Task<IActionResult> GetDashboard([FromQuery] DashboardRequest request)
+            => Ok(await _reportService.GetDashboardAsync(request, GetUserId(), GetRole()));
+
+        // GET: api/Report/dashboard/export — the same filters and scope as a CSV file; every export is audit-logged
+        [HttpGet("dashboard/export")]
+        public async Task<IActionResult> ExportDashboard([FromQuery] DashboardRequest request)
+        {
+            var result = await _reportService.ExportDashboardTasksAsync(request, GetUserId(), GetRole());
+            // UTF-8 byte-order mark so Excel opens non-ASCII text correctly
+            var bytes = System.Text.Encoding.UTF8.GetPreamble()
+                .Concat(System.Text.Encoding.UTF8.GetBytes(result.Content))
+                .ToArray();
+            return File(bytes, "text/csv", result.FileName);
+        }
+
+        private int GetUserId()
+            => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        private string? GetRole()
+            => User.FindFirstValue(ClaimTypes.Role);
 
         // GET: api/Report/audit-logs — Admin & Auditor only
         [HttpGet("audit-logs")]
