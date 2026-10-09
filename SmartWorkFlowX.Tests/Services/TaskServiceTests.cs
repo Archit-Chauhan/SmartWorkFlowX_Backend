@@ -14,6 +14,7 @@ namespace SmartWorkFlowX.Tests.Services
         private readonly Mock<INotificationService> _notificationServiceMock;
         private readonly Mock<IMessagePublisher> _publisherMock;
         private readonly Mock<ITaskCategoryRepository> _categoryRepoMock;
+        private readonly Mock<IUserRepository> _userRepoMock;
         private readonly TaskService _taskService;
 
         public TaskServiceTests()
@@ -24,6 +25,10 @@ namespace SmartWorkFlowX.Tests.Services
             _notificationServiceMock = new Mock<INotificationService>();
             _publisherMock = new Mock<IMessagePublisher>();
             _categoryRepoMock = new Mock<ITaskCategoryRepository>();
+            _userRepoMock = new Mock<IUserRepository>();
+
+            // User 10 is the default active assignee used by the assign tests.
+            _userRepoMock.Setup(r => r.ActiveUserExistsAsync(10)).ReturnsAsync(true);
 
             _publisherMock.Setup(p => p.PublishSystemEventAsync(It.IsAny<SystemEventMessage>()))
                 .Returns(Task.CompletedTask);
@@ -34,7 +39,8 @@ namespace SmartWorkFlowX.Tests.Services
                 _auditRepoMock.Object,
                 _notificationServiceMock.Object,
                 _publisherMock.Object,
-                _categoryRepoMock.Object
+                _categoryRepoMock.Object,
+                _userRepoMock.Object
             );
         }
 

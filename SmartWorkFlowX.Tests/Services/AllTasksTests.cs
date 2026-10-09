@@ -156,7 +156,8 @@ namespace SmartWorkFlowX.Tests.Services
                 new Mock<IAuditLogRepository>().Object,
                 new Mock<INotificationService>().Object,
                 new Mock<IMessagePublisher>().Object,
-                new Mock<ITaskCategoryRepository>().Object);
+                new Mock<ITaskCategoryRepository>().Object,
+                new Mock<IUserRepository>().Object);
         }
 
         [Fact(DisplayName = "TC-AT12: Paged path — shape, counts and page info are passed through")]

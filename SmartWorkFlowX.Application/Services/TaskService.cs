@@ -13,6 +13,10 @@ namespace SmartWorkFlowX.Application.Services
         private readonly INotificationService _notificationService;
         private readonly IMessagePublisher _messagePublisher;
         private readonly ITaskCategoryRepository _categoryRepo;
+        private readonly IUserRepository _userRepo;
+
+        private const int MaxTitleLength = 200;
+        private const int MaxDescriptionLength = 2000;
 
         public TaskService(
             ITaskRepository taskRepo,
@@ -20,8 +24,10 @@ namespace SmartWorkFlowX.Application.Services
             IAuditLogRepository auditRepo,
             INotificationService notificationService,
             IMessagePublisher messagePublisher,
-            ITaskCategoryRepository categoryRepo)
+            ITaskCategoryRepository categoryRepo,
+            IUserRepository userRepo)
         {
+            _userRepo = userRepo;
             _taskRepo = taskRepo;
             _workflowRepo = workflowRepo;
             _auditRepo = auditRepo;
@@ -86,8 +92,56 @@ namespace SmartWorkFlowX.Application.Services
             };
         }
 
+        public async Task<List<AssignableUserResponse>> GetAssignableUsersAsync()
+        {
+            var users = await _userRepo.GetActiveWithRolesAsync();
+            var openCounts = await _taskRepo.GetOpenTaskCountsByAssigneeAsync();
+
+            return users
+                .Where(u => !u.IsDeleted)
+                .OrderBy(u => u.Name, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(u => u.UserId)
+                .Select(u => new AssignableUserResponse(
+                    u.UserId,
+                    u.Name,
+                    u.Email,
+                    u.Role?.RoleName ?? string.Empty,
+                    openCounts.TryGetValue(u.UserId, out var count) ? count : 0))
+                .ToList();
+        }
+
         public async Task<int> AssignTaskAsync(TaskCreateRequest request, int actingUserId)
         {
+            var title = (request.Title ?? string.Empty).Trim();
+            var description = (request.Description ?? string.Empty).Trim();
+
+            if (title.Length == 0)
+                throw new ArgumentException("Task title is required.");
+
+            if (title.Length > MaxTitleLength)
+                throw new ArgumentException("Task title must be 200 characters or fewer.");
+
+            if (description.Length > MaxDescriptionLength)
+                throw new ArgumentException("Description must be 2000 characters or fewer.");
+
+            if (request.Priority != "Low" && request.Priority != "Medium" && request.Priority != "High")
+                throw new ArgumentException("Priority must be Low, Medium or High.");
+
+            if (!await _userRepo.ActiveUserExistsAsync(request.AssignedTo))
+                throw new ArgumentException("The selected person was not found or is deactivated.");
+
+            if (request.CategoryId.HasValue && !await _categoryRepo.ExistsActiveAsync(request.CategoryId.Value))
+                throw new ArgumentException("The selected category was not found.");
+
+            // One day of tolerance: a client behind UTC may legitimately pick "today" while UTC is already tomorrow.
+            if (request.DueDate.HasValue)
+            {
+                var due = request.DueDate.Value;
+                var dueUtc = due.Kind == DateTimeKind.Local ? due.ToUniversalTime() : due;
+                if (dueUtc.Date < DateTime.UtcNow.Date.AddDays(-1))
+                    throw new ArgumentException("The due date cannot be in the past.");
+            }
+
             var workflow = await _workflowRepo.GetByIdWithStepsAsync(request.WorkflowId)
                 ?? throw new KeyNotFoundException("Workflow not found.");
 
@@ -101,8 +155,8 @@ namespace SmartWorkFlowX.Application.Services
             // Step 1+ = Approval steps defined in the workflow
             var newTask = new TaskItem
             {
-                Title = request.Title,
-                Description = request.Description,
+                Title = title,
+                Description = description,
                 WorkflowId = request.WorkflowId,
                 AssignedTo = request.AssignedTo,
                 OriginalAssignedTo = request.AssignedTo, // Track original employee for GoBack
@@ -121,10 +175,10 @@ namespace SmartWorkFlowX.Application.Services
             {
                 EventType = "TaskAssigned",
                 EntityName = "Tasks",
-                ActionDescription = $"Assigned task '{request.Title}' (Priority={request.Priority}) via workflow '{workflow.Title}' to User ID={request.AssignedTo}.",
+                ActionDescription = $"Assigned task '{title}' (Priority={request.Priority}) via workflow '{workflow.Title}' to User ID={request.AssignedTo}.",
                 ActedByUserId = actingUserId,
                 TargetUserId = request.AssignedTo,
-                NotificationMessage = $"You have been assigned a new task: '{request.Title}' (Priority: {request.Priority}).",
+                NotificationMessage = $"You have been assigned a new task: '{title}' (Priority: {request.Priority}).",
                 Timestamp = DateTime.UtcNow
             });
 

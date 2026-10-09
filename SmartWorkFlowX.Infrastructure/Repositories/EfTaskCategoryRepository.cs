@@ -20,6 +20,9 @@ namespace SmartWorkFlowX.Infrastructure.Repositories
                 .OrderBy(c => c.Name)
                 .ToListAsync();
 
+        public async Task<bool> ExistsActiveAsync(int categoryId)
+            => await _context.TaskCategories.AnyAsync(c => c.CategoryId == categoryId && c.IsActive);
+
         public async Task SaveAsync()
             => await _context.SaveChangesAsync();
     }

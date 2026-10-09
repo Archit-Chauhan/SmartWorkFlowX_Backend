@@ -11,6 +11,10 @@ namespace SmartWorkFlowX.Domain.Repositories
         Task<User?> GetByIdAsync(int userId);
         Task<User?> GetByEmailWithRoleAsync(string email);
         Task<IEnumerable<User>> GetAllWithRolesAsync(string? search = null);
+        /// <summary>Active (not soft-deleted) users with their Role, ordered by Name.</summary>
+        Task<List<User>> GetActiveWithRolesAsync();
+        /// <summary>True when the user exists and is not soft-deleted.</summary>
+        Task<bool> ActiveUserExistsAsync(int userId);
         Task<(IEnumerable<User> users, int total)> GetPaginatedAsync(int page, int pageSize, string? search = null);
         Task<bool> EmailExistsAsync(string email);
         Task AddAsync(User user);

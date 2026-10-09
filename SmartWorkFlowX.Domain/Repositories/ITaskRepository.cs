@@ -18,6 +18,8 @@ namespace SmartWorkFlowX.Domain.Repositories
         Task<(IEnumerable<TaskItem> tasks, int total)> GetMyActivityPaginatedAsync(int userId, int page, int pageSize);
         Task<bool> RoleHasUsersAsync(int roleId);
         Task<int?> GetUserRoleIdAsync(int userId);
+        /// <summary>Open (Pending / In Progress) task counts keyed by AssignedTo, one grouped query.</summary>
+        Task<Dictionary<int, int>> GetOpenTaskCountsByAssigneeAsync();
         Task AddAsync(TaskItem task);
         Task AddHistoryAsync(TaskStepHistory history);
         Task SaveAsync();

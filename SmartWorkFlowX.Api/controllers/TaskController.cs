@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartWorkFlowX.Application.Dtos;
 using SmartWorkFlowX.Application.Services;
-using SmartWorkFlowX.Domain.Repositories;
 using System.Security.Claims;
 
 namespace SmartWorkFlowX.Api.Controllers
@@ -14,13 +13,11 @@ namespace SmartWorkFlowX.Api.Controllers
     {
         private readonly ITaskService _taskService;
         private readonly IAiService _aiService;
-        private readonly IUserRepository _userRepo;
 
-        public TaskController(ITaskService taskService, IAiService aiService, IUserRepository userRepo)
+        public TaskController(ITaskService taskService, IAiService aiService)
         {
             _taskService = taskService;
             _aiService = aiService;
-            _userRepo = userRepo;
         }
 
         // GET: api/Task/my-tasks
@@ -108,10 +105,7 @@ namespace SmartWorkFlowX.Api.Controllers
         [HttpGet("assignable-users")]
         [Authorize(Roles = "Manager,Admin")]
         public async Task<IActionResult> GetAssignableUsers()
-        {
-            var users = await _userRepo.GetAllWithRolesAsync();
-            return Ok(users.Select(u => new { u.UserId, u.Name, u.Email, RoleName = u.Role.RoleName }));
-        }
+            => Ok(await _taskService.GetAssignableUsersAsync());
 
         // GET: api/Task/categories
         [HttpGet("categories")]
