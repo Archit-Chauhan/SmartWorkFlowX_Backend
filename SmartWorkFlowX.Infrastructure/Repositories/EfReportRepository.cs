@@ -69,6 +69,70 @@ namespace SmartWorkFlowX.Infrastructure.Repositories
                 tasksPerUser);
         }
 
+        public async Task<List<DashboardTaskRow>> GetDashboardTaskRowsAsync(DateTime previousStart, DateTime end, int? scopedUserId)
+        {
+            // Only tasks that can change a number: created in [previousStart, end], or older but completed since
+            // previousStart, or older and still open (Cancelled/Rejected tasks have no completion date and never count as open).
+            var query = _context.Tasks
+                .AsNoTracking()
+                .Where(t => t.CreatedAt <= end &&
+                    (t.CreatedAt >= previousStart ||
+                     (t.CompletedAt != null && t.CompletedAt >= previousStart) ||
+                     (t.CompletedAt == null && t.Status != "Cancelled" && t.Status != "Rejected")));
+
+            if (scopedUserId.HasValue)
+            {
+                int uid = scopedUserId.Value;
+                query = query.Where(t =>
+                    t.AssignedTo == uid ||
+                    t.OriginalAssignedTo == uid ||
+                    t.StepHistories.Any(h => h.ActedByUserId == uid));
+            }
+
+            return await query
+                .Select(t => new DashboardTaskRow
+                {
+                    TaskId = t.TaskId,
+                    Title = t.Title,
+                    WorkflowId = t.WorkflowId,
+                    WorkflowTitle = t.Workflow != null ? t.Workflow.Title : null,
+                    AssignedTo = t.AssignedTo,
+                    OriginalAssignedTo = t.OriginalAssignedTo,
+                    Status = t.Status,
+                    Priority = t.Priority,
+                    CategoryId = t.CategoryId,
+                    CategoryName = t.Category != null ? t.Category.Name : null,
+                    CategoryColor = t.Category != null ? t.Category.ColorHex : null,
+                    CreatedAt = t.CreatedAt,
+                    DueDate = t.DueDate,
+                    CompletedAt = t.CompletedAt
+                })
+                .ToListAsync();
+        }
+
+        public async Task<DashboardLookups> GetDashboardLookupsAsync()
+        {
+            // Deleted users are included so historical tasks still show the right name; callers hide them from dropdowns and totals.
+            var users = await _context.Users
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Select(u => new DashboardUserRow { Id = u.UserId, Name = u.Name, IsDeleted = u.IsDeleted })
+                .ToListAsync();
+
+            var workflows = await _context.Workflows
+                .AsNoTracking()
+                .Select(w => new DashboardWorkflowRow { Id = w.WorkflowId, Title = w.Title, Status = w.Status })
+                .ToListAsync();
+
+            var categories = await _context.TaskCategories
+                .AsNoTracking()
+                .Where(c => c.IsActive)
+                .Select(c => new DashboardCategoryRow { Id = c.CategoryId, Name = c.Name, ColorHex = c.ColorHex })
+                .ToListAsync();
+
+            return new DashboardLookups { Users = users, Workflows = workflows, Categories = categories };
+        }
+
         public async Task<List<object>> GetOverdueTasksAsync()
         {
             var now = DateTime.UtcNow;
