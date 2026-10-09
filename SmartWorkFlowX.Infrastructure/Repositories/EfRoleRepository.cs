@@ -12,5 +12,8 @@ namespace SmartWorkFlowX.Infrastructure.Repositories
 
         public async Task<List<Role>> GetAllAsync()
             => await _context.Roles.ToListAsync();
+
+        public async Task<Role?> GetByIdAsync(int roleId)
+            => await _context.Roles.FirstOrDefaultAsync(r => r.RoleId == roleId);
     }
 }
